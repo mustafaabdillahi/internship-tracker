@@ -167,6 +167,7 @@ wheels/
 share/python-wheels/
 *.egg-info/
 .installed.cfg
+**/pyvenv.cfg
 *.egg
 MANIFEST
 

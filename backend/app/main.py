@@ -1,13 +1,10 @@
 from fastapi import FastAPI
-from dotenv import load_dotenv
-import os
+from config import Config
 import sqlalchemy
 
-load_dotenv()
-DATABASE_URL = os.getenv("DATABASE_URL")
-
+config = Config()
 app = FastAPI()
-engine = sqlalchemy.create_engine(DATABASE_URL)
+engine = sqlalchemy.create_engine(config.database_url)
 
 # For now, just pings the database
 @app.get("/health")

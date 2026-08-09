@@ -6,7 +6,6 @@ Table user {
   firstname varchar
   surname varchar
   email varchar [not null]
-  password_hash varchar [not null]
   created_at timestamp [not null]
 }
 
@@ -14,20 +13,24 @@ Table application {
   id integer [primary key]
   userid varchar [not null]
   companyid varchar
-  role string
-  stage string
+  role enum
+  stage enum
   date_applied timestamp [not null]
+  loc location
+  employment_type varchar
+  notes text
 }
 
 Table stage_event {
-  applicationid integer [primary key]
-  stage string [primary key]
+  id string [primary key]
+  applicationid integer [not null]
+  stage enum [not null]
   dt timestamp [not null]
 }
 
 Table email_record {
-  applicationid integer [primary key]
-  recordid integer [primary key]
+  id varchar
+  applicationid integer
   sender varchar [not null]
   recipient varchar [not null]
   subject varchar
