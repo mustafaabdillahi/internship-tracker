@@ -12,8 +12,8 @@ Table user {
 Table application {
   id integer [primary key]
   userid varchar [not null]
-  companyid varchar
-  role enum
+  company_id varchar
+  role varchar
   stage enum
   date_applied timestamp [not null]
   loc location
@@ -22,15 +22,15 @@ Table application {
 }
 
 Table stage_event {
-  id string [primary key]
-  applicationid integer [not null]
+  id varchar [primary key]
+  application_id integer [not null]
   stage enum [not null]
   dt timestamp [not null]
 }
 
 Table email_record {
   id varchar
-  applicationid integer
+  application_id integer
   sender varchar [not null]
   recipient varchar [not null]
   subject varchar

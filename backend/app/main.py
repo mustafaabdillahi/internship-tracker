@@ -1,10 +1,10 @@
 from fastapi import FastAPI
-from config import Config
+from config import Settings
 import sqlalchemy
 
-config = Config()
+settings = Settings() #type: ignore
 app = FastAPI()
-engine = sqlalchemy.create_engine(config.database_url)
+engine = sqlalchemy.create_engine(settings.database_url)
 
 # For now, just pings the database
 @app.get("/health")

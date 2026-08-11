@@ -1,6 +1,8 @@
 services:
   backend:
     build: ./backend
+    env_file:
+      - .env
     container_name: internship-tracker-backend
     ports:
       - "8000:8000"
