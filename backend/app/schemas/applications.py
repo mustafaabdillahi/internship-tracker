@@ -1,6 +1,6 @@
+from app.models.models import ApplicationStage
 from datetime import datetime
-from models.models import ApplicationStage
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 class ApplicationCreate(BaseModel):
     userid: str
@@ -28,3 +28,6 @@ class ApplicationRead(BaseModel):
     employment_type: str | None = None
     notes: str | None = None
 
+    model_config = ConfigDict(
+        from_attributes=True
+    )
