@@ -12,6 +12,11 @@ class Settings(BaseSettings):
     )
 
     # Settings
+    google_oauth_client_id: str
+    google_oauth_client_secret: str
+    google_oauth_scopes: list[str] = [
+        "https://www.googleapis.com/auth/gmail.readonly"
+    ]
     postgres_host: str = "postgres"
     postgres_port: int = 5432
     psql_database: str
@@ -25,3 +30,12 @@ class Settings(BaseSettings):
             f"@{self.postgres_host}:{self.postgres_port}"
             f"/{self.psql_database}"
         )
+
+    @property
+    def google_client_config(self) -> dict[str, dict[str, str]]:
+        return {"web": {
+            "client_id": self.google_oauth_client_id,
+            "client_secret": self.google_oauth_client_secret,
+            "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+            "token_uri": "https://oauth2.googleapis.com/token"
+        }}
