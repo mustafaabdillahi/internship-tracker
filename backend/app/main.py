@@ -10,9 +10,10 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import RedirectResponse
 from google.auth.transport import requests as google_requests
 from google.oauth2 import id_token
+from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import Flow
 from jose import jwt
-from utils.utils import create_google_user
+from utils import utils
 import secrets
 import sqlalchemy
 
@@ -97,13 +98,19 @@ def login_google_callback(request: Request):
     with SessionLocal() as db:
         user = db.query(User).filter(User.email == google_user["email"]).first()
         if user is None:
-            user_id = create_google_user(
+            user_id = utils.create_google_user(
                 google_user,
                 credentials.refresh_token,
                 db
             )
         else:
             user_id = user.id
+            # Update user's refresh token if it exists
+            if credentials.refresh_token:
+                user.google_refresh_token = credentials.refresh_token
+
+        db.commit()
+        db.refresh(user)
 
     # Declare session token
     payload = {
@@ -149,6 +156,40 @@ def auth_user_info(request: Request):
     with SessionLocal() as db:
         user = db.query(User).filter(User.id == payload["sub"]).first()
         return user
+
+# Get list of emails
+@app.get("/emails")
+def get_user_emails(request: Request):
+    session = request.cookies.get("session")
+    if not session:
+        raise HTTPException(status_code=400, detail="Missing session data. You may not be logged in.")
+
+    payload = jwt.decode(
+        session,
+        settings.jwt_secret,
+        algorithms=["HS256"]
+    )
+
+    with SessionLocal() as db:
+        user = db.query(User).filter(User.id == payload["sub"]).first()
+
+        if user is None:
+            raise HTTPException(status_code=404, detail="User not found.")
+
+        if not user.google_refresh_token:
+            raise HTTPException(status_code=400, detail="Google account is not connected.")
+
+        credentials = Credentials(
+            token=None,
+            refresh_token=user.google_refresh_token,
+            token_uri="https://oauth2.googleapis.com/token",
+            client_id=settings.google_oauth_client_id,
+            client_secret=settings.google_oauth_client_secret,
+            scopes=settings.google_oauth_scopes
+        )
+
+        return utils.get_emails(credentials)
+
 
 
 @app.get("/")

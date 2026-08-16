@@ -16,7 +16,7 @@ class Settings(BaseSettings):
     google_oauth_client_id: str
     google_oauth_client_secret: str
     google_oauth_scopes: list[str] = [
-        #"https://www.googleapis.com/auth/gmail.readonly",
+        "https://www.googleapis.com/auth/gmail.readonly",
         "https://www.googleapis.com/auth/userinfo.email",
         "https://www.googleapis.com/auth/userinfo.profile",
         "openid"
