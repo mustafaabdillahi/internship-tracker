@@ -1,6 +1,8 @@
+from datetime import timezone
+from email.utils import parsedate_to_datetime
 from googleapiclient import discovery
 from google.oauth2.credentials import Credentials
-from models.models import User
+from models.models import User, EmailRecord
 from sqlalchemy.orm import Session
 from typing import Any, Mapping
 import base64
@@ -9,8 +11,8 @@ import string
 
 characters = string.ascii_letters + string.digits
 
-def create_google_user(google_user: Mapping[str, Any], refresh_token: str, db: Session) -> str:
-    """Adds a user from a Google account to the user table in database. Returns user ID."""
+def create_google_user(google_user: Mapping[str, Any], refresh_token: str, db: Session) -> User:
+    """Adds a user from a Google account to the user table in database. Returns the user object."""
     user_id = "".join(secrets.choice(characters) for _ in range(8))
     user = User(
         id=user_id,
@@ -22,7 +24,7 @@ def create_google_user(google_user: Mapping[str, Any], refresh_token: str, db: S
 
     db.add(user)
 
-    return user_id
+    return user
 
 
 def get_emails(credentials: Credentials, limit: int = 20) -> dict[str, dict[str, str]]:
@@ -40,18 +42,48 @@ def get_emails(credentials: Credentials, limit: int = 20) -> dict[str, dict[str,
             headers = payload["headers"]
             subject = None
             sender = None
+            recipient = None
+            received_at = None
             for d in headers:
                 if d["name"] == "Subject":
                     subject = d["value"]
                 if d["name"] == "From":
                     sender = d["value"]
+                if d["name"] == "Delivered-To":
+                    recipient = d["value"]
+                if d["name"] == "Received" and d["value"]:
+                    received_at = parsedate_to_datetime(
+                        d["value"].split(";")[-1].strip()
+                    ).astimezone(timezone.utc)
 
             data = payload.get("parts")[0]["body"]["data"]
             data = data.replace("-","+").replace("_","/")
             decoded_data = base64.b64decode(data).decode("utf-8", errors="replace")
-            emails[msg["id"]] = {"subject": subject, "sender": sender, "data": decoded_data}
+            emails[msg["id"]] = {
+                "subject": subject,
+                "sender": sender,
+                "recipient": recipient,
+                "received-at": received_at,
+                "text": decoded_data
+            }
             
         except Exception as e:
             print(f"Failed to process email {msg['id']}: {e}")
 
     return emails
+
+
+def write_email_records(emails: dict[str, dict[str, str]], user: User, db: Session):
+    """Writes fetched emails to email record table in database."""
+
+    for id, email in emails.items():
+        record = EmailRecord(
+            id=id,
+            sender=email["sender"],
+            recipient=user.email,
+            subject=email["subject"],
+            received_at=email["received-at"],
+            raw_text=email["text"],
+            raw_html=""
+        )
+        db.add(record)

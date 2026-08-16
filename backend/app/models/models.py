@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 from enum import Enum
-from sqlalchemy import DateTime, Enum as SQLAlchemyEnum, ForeignKey, Integer, LargeBinary, String, Text
+from sqlalchemy import Boolean, DateTime, Enum as SQLAlchemyEnum, ForeignKey, Integer, LargeBinary, String, Text
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 class Base(DeclarativeBase):
@@ -29,7 +29,7 @@ class User(Base):
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime,
-        default=datetime.now(timezone.utc),
+        default=lambda: datetime.now(timezone.utc),
         nullable=False
     )
 
@@ -42,7 +42,7 @@ class Application(Base):
     __tablename__ = "application"
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
-    userid: Mapped[str] = mapped_column(String(8), ForeignKey("user.id"), nullable=False)
+    user_id: Mapped[str] = mapped_column(String(8), ForeignKey("user.id"), nullable=False)
     company_id: Mapped[str | None] = mapped_column(String(8), ForeignKey("company.id"))
     role: Mapped[str | None] = mapped_column(String(50))
     stage: Mapped[ApplicationStage | None] = mapped_column(SQLAlchemyEnum(ApplicationStage))
@@ -90,14 +90,15 @@ class EmailRecord(Base):
     id: Mapped[str] = mapped_column(String(36), primary_key=True)
     application_id: Mapped[int | None] = mapped_column(ForeignKey("application.id"))
     sender: Mapped[str] = mapped_column(String(320), nullable=False)
-    recipient: Mapped[str] = mapped_column(String(320), nullable=False)
+    recipient: Mapped[str] = mapped_column(String(320), nullable=False, default=False)
     subject: Mapped[str | None] = mapped_column(String(500))
     received_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    processed: Mapped[bool] = mapped_column(Boolean, nullable=False)
     raw_text: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
     raw_html: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
     created_at: Mapped[datetime]  = mapped_column(
         DateTime,
-        default=datetime.now(timezone.utc),
+        default=lambda: datetime.now(timezone.utc),
         nullable=False
     )
 
@@ -116,7 +117,7 @@ class Company(Base):
     size: Mapped[int | None] = mapped_column(Integer)
     created_at: Mapped[datetime]  = mapped_column(
         DateTime,
-        default=datetime.now(timezone.utc),
+        default=lambda: datetime.now(timezone.utc),
         nullable=False
     )
 

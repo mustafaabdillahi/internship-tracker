@@ -98,13 +98,12 @@ def login_google_callback(request: Request):
     with SessionLocal() as db:
         user = db.query(User).filter(User.email == google_user["email"]).first()
         if user is None:
-            user_id = utils.create_google_user(
+            user = utils.create_google_user(
                 google_user,
                 credentials.refresh_token,
                 db
             )
         else:
-            user_id = user.id
             # Update user's refresh token if it exists
             if credentials.refresh_token:
                 user.google_refresh_token = credentials.refresh_token
@@ -114,7 +113,7 @@ def login_google_callback(request: Request):
 
     # Declare session token
     payload = {
-        "sub": user_id,
+        "sub": user.id,
         "exp": datetime.now(timezone.utc) + timedelta(days=7)
     }
     session_token = jwt.encode(
@@ -157,7 +156,7 @@ def auth_user_info(request: Request):
         user = db.query(User).filter(User.id == payload["sub"]).first()
         return user
 
-# Get list of emails
+# FOR TESTING ONLY: Get list of emails
 @app.get("/emails")
 def get_user_emails(request: Request):
     session = request.cookies.get("session")
@@ -189,6 +188,46 @@ def get_user_emails(request: Request):
         )
 
         return utils.get_emails(credentials)
+
+
+@app.post("/gmail/sync")
+def fetch_user_emails(request: Request):
+    session = request.cookies.get("session")
+    if not session:
+        raise HTTPException(status_code=400, detail="Missing session data. You may not be logged in.")
+
+    payload = jwt.decode(
+        session,
+        settings.jwt_secret,
+        algorithms=["HS256"]
+    )
+
+    with SessionLocal() as db:
+        user = db.query(User).filter(User.id == payload["sub"]).first()
+
+        if user is None:
+            raise HTTPException(status_code=404, detail="User not found.")
+
+        if not user.google_refresh_token:
+            raise HTTPException(status_code=400, detail="Google account is not connected.")
+
+        credentials = Credentials(
+            token=None,
+            refresh_token=user.google_refresh_token,
+            token_uri="https://oauth2.googleapis.com/token",
+            client_id=settings.google_oauth_client_id,
+            client_secret=settings.google_oauth_client_secret,
+            scopes=settings.google_oauth_scopes
+        )
+
+        emails = utils.get_emails(credentials)
+        utils.write_email_records(emails, user, db)
+        db.commit()
+        db.refresh(user)
+
+    return {"DEBUG": f"Success. {len(emails)} emails recorded."}
+
+
 
 
 
