@@ -12,11 +12,16 @@ class Settings(BaseSettings):
     )
 
     # Settings
+    google_oauth_callback_url: str = "http://localhost:8000/auth/google/callback"
     google_oauth_client_id: str
     google_oauth_client_secret: str
     google_oauth_scopes: list[str] = [
-        "https://www.googleapis.com/auth/gmail.readonly"
+        #"https://www.googleapis.com/auth/gmail.readonly",
+        "https://www.googleapis.com/auth/userinfo.email",
+        "https://www.googleapis.com/auth/userinfo.profile",
+        "openid"
     ]
+    jwt_secret: str
     postgres_host: str = "postgres"
     postgres_port: int = 5432
     psql_database: str

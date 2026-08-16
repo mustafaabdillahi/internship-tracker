@@ -1,6 +1,19 @@
+# NOTE: FOR TESTING PURPOSES ONLY
+import os
+os.environ["OAUTHLIB_INSECURE_TRANSPORT"] = "1"
+
+from models.models import User
 from config import Settings
-from fastapi import FastAPI
+from database import SessionLocal
+from datetime import datetime, timedelta, timezone
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.responses import RedirectResponse
+from google.auth.transport import requests as google_requests
+from google.oauth2 import id_token
 from google_auth_oauthlib.flow import Flow
+from jose import jwt
+from utils.utils import create_google_user
+import secrets
 import sqlalchemy
 
 settings = Settings() #type: ignore
@@ -18,11 +31,13 @@ def get_health():
 
 @app.get("/auth/google/login")
 def login_google():
+    code_verifier = secrets.token_urlsafe(64)
     flow = Flow.from_client_config(
         client_config=settings.google_client_config,
-        scopes=settings.google_oauth_scopes
+        scopes=settings.google_oauth_scopes,
+        code_verifier=code_verifier
     )
-    flow.redirect_uri = "http://localhost:8000/auth/google/callback"
+    flow.redirect_uri = settings.google_oauth_callback_url
 
     authorisation_url, state = flow.authorization_url(
         access_type="offline",
@@ -30,11 +45,110 @@ def login_google():
         prompt="consent"
     )
 
-    return {"Authorisation URL": authorisation_url, "State": state}
+    response = RedirectResponse(authorisation_url)
+    response.set_cookie(
+        key="oauth_state",
+        value=state,
+        httponly=True,
+        secure=False, # TODO: Change this to True before production
+        samesite="lax"
+    )
+    response.set_cookie(
+        key="code_verifier",
+        value=code_verifier,
+        httponly=True,
+        secure=False, # TODO: Change this to True before production
+        samesite="lax"
+    )
+
+    return response
+
 
 @app.get("/auth/google/callback")
-def login_google_callback():
-    return {"DEBUG": "Callback completed!"}
+def login_google_callback(request: Request):
+    # Get state and code verifier from cookies
+    state = request.cookies.get("oauth_state")
+    code_verifier = request.cookies.get("code_verifier")
+    if not state:
+        raise HTTPException(status_code=400, detail="Missing OAuth state")
+    if not code_verifier:
+        raise HTTPException(status_code=400, detail="Missing code verifier")
+
+    # Get flow and credentials
+    flow = Flow.from_client_config(
+        client_config=settings.google_client_config,
+        scopes=settings.google_oauth_scopes,
+        state=state,
+        code_verifier=code_verifier
+    )
+
+    flow.redirect_uri = settings.google_oauth_callback_url
+    flow.fetch_token(authorization_response=str(request.url))
+    credentials = flow.credentials
+
+    # Get Google user details
+    google_user = id_token.verify_oauth2_token(
+        credentials.id_token,
+        google_requests.Request(),
+        settings.google_oauth_client_id
+    )
+
+    # If user not in database, create it from Google account info
+    with SessionLocal() as db:
+        user = db.query(User).filter(User.email == google_user["email"]).first()
+        if user is None:
+            user_id = create_google_user(
+                google_user,
+                credentials.refresh_token,
+                db
+            )
+        else:
+            user_id = user.id
+
+    # Declare session token
+    payload = {
+        "sub": user_id,
+        "exp": datetime.now(timezone.utc) + timedelta(days=7)
+    }
+    session_token = jwt.encode(
+        payload,
+        settings.jwt_secret,
+        algorithm="HS256"
+    )
+
+    # Add session token to cookies
+    response = RedirectResponse("http://localhost:8000")
+    response.delete_cookie("code_verifier")
+    response.delete_cookie("oauth_state")
+    response.set_cookie(
+        key="session",
+        value=session_token,
+        httponly=True,
+        secure=False, # TODO: Change this to True before production
+        samesite="lax",
+        max_age=60*60*24*7 # 7 days
+    )
+
+    # Redirect back to home page
+    return response
+
+
+# Test page used to store user information
+@app.get("/auth/me")
+def auth_user_info(request: Request):
+    session = request.cookies.get("session")
+    if not session:
+        raise HTTPException(status_code=400, detail="Missing session data. You may not be logged in.")
+
+    payload = jwt.decode(
+        session,
+        settings.jwt_secret,
+        algorithms=["HS256"]
+    )
+
+    with SessionLocal() as db:
+        user = db.query(User).filter(User.id == payload["sub"]).first()
+        return user
 
 
 @app.get("/")

@@ -22,7 +22,11 @@ class User(Base):
     id: Mapped[str] = mapped_column(String(8), primary_key=True)
     firstname: Mapped[str | None] = mapped_column(String(30))
     surname: Mapped[str | None] = mapped_column(String(30))
-    email: Mapped[str] = mapped_column(String(320), nullable=False)
+    email: Mapped[str] = mapped_column(String(320), nullable=False, unique=True)
+
+    # TODO: Encrypt before production
+    google_refresh_token: Mapped[str | None] = mapped_column(Text)
+
     created_at: Mapped[datetime] = mapped_column(
         DateTime,
         default=datetime.now(timezone.utc),
