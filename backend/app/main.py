@@ -2,9 +2,10 @@
 import os
 os.environ["OAUTHLIB_INSECURE_TRANSPORT"] = "1"
 
-from models.models import User
-from config import Settings
-from database import SessionLocal
+from app.config import Settings
+from app.database import SessionLocal
+from app.models.models import User
+from app.utils import utils
 from datetime import datetime, timedelta, timezone
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import RedirectResponse
@@ -13,7 +14,6 @@ from google.oauth2 import id_token
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import Flow
 from jose import jwt
-from utils import utils
 import secrets
 import sqlalchemy
 
@@ -89,7 +89,7 @@ def login_google_callback(request: Request):
 
     # Get Google user details
     google_user = id_token.verify_oauth2_token(
-        credentials.id_token,
+        credentials.id_token, #type: ignore
         google_requests.Request(),
         settings.google_oauth_client_id
     )
@@ -100,7 +100,7 @@ def login_google_callback(request: Request):
         if user is None:
             user = utils.create_google_user(
                 google_user,
-                credentials.refresh_token,
+                credentials.refresh_token, # type: ignore
                 db
             )
         else:

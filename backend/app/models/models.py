@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 from enum import Enum
-from sqlalchemy import Boolean, DateTime, Enum as SQLAlchemyEnum, ForeignKey, Integer, LargeBinary, String, Text
+from sqlalchemy import Boolean, DateTime, Enum as SQLAlchemyEnum, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 class Base(DeclarativeBase):
@@ -90,12 +90,12 @@ class EmailRecord(Base):
     id: Mapped[str] = mapped_column(String(36), primary_key=True)
     application_id: Mapped[int | None] = mapped_column(ForeignKey("application.id"))
     sender: Mapped[str] = mapped_column(String(320), nullable=False)
-    recipient: Mapped[str] = mapped_column(String(320), nullable=False, default=False)
+    recipient: Mapped[str] = mapped_column(String(320), nullable=False)
     subject: Mapped[str | None] = mapped_column(String(500))
     received_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
-    processed: Mapped[bool] = mapped_column(Boolean, nullable=False)
-    raw_text: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
-    raw_html: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
+    processed: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    raw_text: Mapped[str | None] = mapped_column(Text)
+    raw_html: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[datetime]  = mapped_column(
         DateTime,
         default=lambda: datetime.now(timezone.utc),

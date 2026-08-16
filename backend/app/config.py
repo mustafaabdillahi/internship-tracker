@@ -22,7 +22,7 @@ class Settings(BaseSettings):
         "openid"
     ]
     jwt_secret: str
-    postgres_host: str = "postgres"
+    postgres_host: str = "postgres" # postgres in Docker, localhost for local
     postgres_port: int = 5432
     psql_database: str
     psql_password: str
