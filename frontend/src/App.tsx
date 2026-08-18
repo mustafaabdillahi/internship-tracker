@@ -6,6 +6,7 @@ import Dashboard from './pages/Dashboard'
 import ApplicationDetails from './pages/ApplicationDetails'
 import Analytics from './pages/Analytics'
 import Calendar from './pages/Calendar'
+import ProtectedRoute from "./components/ProtectedRoute";
 
 
 function App() {
@@ -16,11 +17,13 @@ function App() {
         <Route path="/login" element={<Login />} />
 
         {/* Authenticated application routes */}
-        <Route element={<Layout />}>
-          <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/applications/:id" element={<ApplicationDetails />} />
-          <Route path="/analytics" element={<Analytics />} />
-          <Route path="/calendar" element={<Calendar />} />
+        <Route element={<ProtectedRoute />}>
+          <Route element={<Layout />}>
+            <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/applications/:id" element={<ApplicationDetails />} />
+            <Route path="/analytics" element={<Analytics />} />
+            <Route path="/calendar" element={<Calendar />} />
+          </Route>
         </Route>
 
         {/* Default route */}

@@ -1,8 +1,10 @@
-# NOTE: FOR TESTING PURPOSES ONLY
-import os
-os.environ["OAUTHLIB_INSECURE_TRANSPORT"] = "1"
-
 from app.config import Settings
+settings = Settings() # type: ignore
+
+if not settings.is_production:
+    import os
+    os.environ["OAUTHLIB_INSECURE_TRANSPORT"] = "1"
+
 from app.database import SessionLocal
 from app.models.models import Application, User
 from app.utils import utils
@@ -14,18 +16,18 @@ from google.auth.transport import requests as google_requests
 from google.oauth2 import id_token
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import Flow
-from jose import jwt
+from jose import jwt, JWTError
 import secrets
 import sqlalchemy
 
-settings = Settings() #type: ignore
+
 app = FastAPI()
 engine = sqlalchemy.create_engine(settings.database_url)
 
 # Allows backend to access API
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],
+    allow_origins=[settings.frontend_url],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"]
@@ -40,6 +42,7 @@ def get_health():
         conn.execute(query)
         conn.commit()
     return {"Database": "pinged"}
+
 
 @app.get("/auth/google/login")
 def login_google():
@@ -62,15 +65,15 @@ def login_google():
         key="oauth_state",
         value=state,
         httponly=True,
-        secure=False, # TODO: Change this to True before production
-        samesite="lax"
+        secure=settings.is_production,
+        samesite="none" if settings.is_production else "lax"
     )
     response.set_cookie(
         key="code_verifier",
         value=code_verifier,
         httponly=True,
-        secure=False, # TODO: Change this to True before production
-        samesite="lax"
+        secure=settings.is_production,
+        samesite="none" if settings.is_production else "lax"
     )
 
     return response
@@ -134,15 +137,15 @@ def login_google_callback(request: Request):
     )
 
     # Add session token to cookies
-    response = RedirectResponse("http://localhost:8000")
+    response = RedirectResponse(f"{settings.frontend_url}/dashboard")
     response.delete_cookie("code_verifier")
     response.delete_cookie("oauth_state")
     response.set_cookie(
         key="session",
         value=session_token,
         httponly=True,
-        secure=False, # TODO: Change this to True before production
-        samesite="lax",
+        secure=settings.is_production,
+        samesite="none" if settings.is_production else "lax",
         max_age=60*60*24*7 # 7 days
     )
 
@@ -155,24 +158,31 @@ def login_google_callback(request: Request):
 def auth_user_info(request: Request):
     session = request.cookies.get("session")
     if not session:
-        raise HTTPException(status_code=400, detail="Missing session data. You may not be logged in.")
+        raise HTTPException(status_code=401, detail="Not authenticated")
 
-    payload = jwt.decode(
-        session,
-        settings.jwt_secret,
-        algorithms=["HS256"]
-    )
+    try:
+        payload = jwt.decode(
+            session,
+            settings.jwt_secret,
+            algorithms=["HS256"]
+        )
+    except JWTError:
+        raise HTTPException(status_code=401, detail="Invalid or expired session")
 
     with SessionLocal() as db:
         user = db.query(User).filter(User.id == payload["sub"]).first()
+        if user is None:
+            raise HTTPException(status_code=401, detail="User no longer exists")
+
         return user
+
 
 # FOR TESTING ONLY: Get list of emails
 @app.get("/emails")
 def get_user_emails(request: Request):
     session = request.cookies.get("session")
     if not session:
-        raise HTTPException(status_code=400, detail="Missing session data. You may not be logged in.")
+        raise HTTPException(status_code=401, detail="Not authenticated")
 
     payload = jwt.decode(
         session,
@@ -205,7 +215,7 @@ def get_user_emails(request: Request):
 def record_user_emails(request: Request):
     session = request.cookies.get("session")
     if not session:
-        raise HTTPException(status_code=400, detail="Missing session data. You may not be logged in.")
+        raise HTTPException(status_code=401, detail="Not authenticated")
 
     payload = jwt.decode(
         session,
@@ -243,7 +253,7 @@ def record_user_emails(request: Request):
 def fetch_applications(request: Request):
     session = request.cookies.get("session")
     if not session:
-        raise HTTPException(status_code=400, detail="Missing session data. You may not be logged in.")
+        raise HTTPException(status_code=401, detail="Not authenticated")
 
     payload = jwt.decode(
         session,
@@ -268,7 +278,7 @@ def fetch_applications(request: Request):
 def fetch_application(request: Request, application_id: int):
     session = request.cookies.get("session")
     if not session:
-        raise HTTPException(status_code=400, detail="Missing session data. You may not be logged in.")
+        raise HTTPException(status_code=401, detail="Not authenticated")
 
     payload = jwt.decode(
         session,

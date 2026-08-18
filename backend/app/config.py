@@ -11,7 +11,11 @@ class Settings(BaseSettings):
         env_file_encoding="utf-8"
     )
 
+    # Environment
+    environment: str = "development"
+
     # Settings
+    frontend_url: str = "http://localhost:5173"
     google_oauth_callback_url: str = "http://localhost:8000/auth/google/callback"
     google_oauth_client_id: str
     google_oauth_client_secret: str
@@ -44,3 +48,7 @@ class Settings(BaseSettings):
             "auth_uri": "https://accounts.google.com/o/oauth2/auth",
             "token_uri": "https://oauth2.googleapis.com/token"
         }}
+
+    @property
+    def is_production(self) -> bool:
+        return self.environment == "production"
