@@ -4,5 +4,4 @@ COPY pyproject.toml .
 RUN pip install --no-cache-dir .
 COPY . .
 COPY entrypoint.sh .
-RUN chmod + entrypoint.sh
-CMD ["./entrypoint.sh"]
+CMD ["sh", "./entrypoint.sh"]
