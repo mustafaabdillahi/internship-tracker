@@ -12,7 +12,7 @@ class Settings(BaseSettings):
     )
 
     # Environment
-    environment: str = "development"
+    production: bool = False
 
     # Settings
     frontend_url: str = "http://localhost:5173"
@@ -49,6 +49,3 @@ class Settings(BaseSettings):
             "token_uri": "https://oauth2.googleapis.com/token"
         }}
 
-    @property
-    def is_production(self) -> bool:
-        return self.environment == "production"

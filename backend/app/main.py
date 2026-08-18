@@ -1,7 +1,7 @@
 from app.config import Settings
 settings = Settings() # type: ignore
 
-if not settings.is_production:
+if not settings.production:
     import os
     os.environ["OAUTHLIB_INSECURE_TRANSPORT"] = "1"
 
@@ -65,15 +65,15 @@ def login_google():
         key="oauth_state",
         value=state,
         httponly=True,
-        secure=settings.is_production,
-        samesite="none" if settings.is_production else "lax"
+        secure=settings.production,
+        samesite="none" if settings.production else "lax"
     )
     response.set_cookie(
         key="code_verifier",
         value=code_verifier,
         httponly=True,
-        secure=settings.is_production,
-        samesite="none" if settings.is_production else "lax"
+        secure=settings.production,
+        samesite="none" if settings.production else "lax"
     )
 
     return response
@@ -144,8 +144,8 @@ def login_google_callback(request: Request):
         key="session",
         value=session_token,
         httponly=True,
-        secure=settings.is_production,
-        samesite="none" if settings.is_production else "lax",
+        secure=settings.production,
+        samesite="none" if settings.production else "lax",
         max_age=60*60*24*7 # 7 days
     )
 
