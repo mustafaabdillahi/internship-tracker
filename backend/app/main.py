@@ -4,10 +4,11 @@ os.environ["OAUTHLIB_INSECURE_TRANSPORT"] = "1"
 
 from app.config import Settings
 from app.database import SessionLocal
-from app.models.models import User
+from app.models.models import Application, User
 from app.utils import utils
 from datetime import datetime, timedelta, timezone
 from fastapi import FastAPI, HTTPException, Request
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse
 from google.auth.transport import requests as google_requests
 from google.oauth2 import id_token
@@ -21,7 +22,17 @@ settings = Settings() #type: ignore
 app = FastAPI()
 engine = sqlalchemy.create_engine(settings.database_url)
 
-# For now, just pings the database
+# Allows backend to access API
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5173"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"]
+)
+
+
+# Pings the database
 @app.get("/health")
 def get_health():
     with engine.connect() as conn:
@@ -191,7 +202,7 @@ def get_user_emails(request: Request):
 
 
 @app.post("/gmail/sync")
-def fetch_user_emails(request: Request):
+def record_user_emails(request: Request):
     session = request.cookies.get("session")
     if not session:
         raise HTTPException(status_code=400, detail="Missing session data. You may not be logged in.")
@@ -228,6 +239,60 @@ def fetch_user_emails(request: Request):
     return {"DEBUG": f"Success. {len(emails)} emails recorded."}
 
 
+@app.get("/applications")
+def fetch_applications(request: Request):
+    session = request.cookies.get("session")
+    if not session:
+        raise HTTPException(status_code=400, detail="Missing session data. You may not be logged in.")
+
+    payload = jwt.decode(
+        session,
+        settings.jwt_secret,
+        algorithms=["HS256"]
+    )
+
+    with SessionLocal() as db:
+        user = db.query(User).filter(User.id == payload["sub"]).first()
+        if user is None:
+            raise HTTPException(status_code=404, detail="User not found.")
+
+        applications = db.query(Application).filter(Application.user_id == payload["sub"]).all()
+
+    return {
+        "DEBUG": f"Success. {len(applications)} applications retrieved.",
+        "Applications": applications
+    }
+
+
+@app.get("/applications/{application_id}")
+def fetch_application(request: Request, application_id: int):
+    session = request.cookies.get("session")
+    if not session:
+        raise HTTPException(status_code=400, detail="Missing session data. You may not be logged in.")
+
+    payload = jwt.decode(
+        session,
+        settings.jwt_secret,
+        algorithms=["HS256"]
+    )
+
+    with SessionLocal() as db:
+        user = db.query(User).filter(User.id == payload["sub"]).first()
+        if user is None:
+            raise HTTPException(status_code=404, detail="User not found.")
+
+        application = db.query(Application).filter(
+            Application.id == application_id,
+            Application.user_id == payload["sub"]
+        ).first()
+
+        if application is None:
+            raise HTTPException(status_code=404, detail="Application not found.")
+
+    return {
+        "DEBUG": f"Success.",
+        "Application": application
+    }
 
 
 

@@ -1,4 +1,4 @@
-from app.models.models import User, EmailRecord
+from app.models.models import EmailRecord, User
 from datetime import datetime, timezone
 from googleapiclient import discovery
 from google.oauth2.credentials import Credentials
