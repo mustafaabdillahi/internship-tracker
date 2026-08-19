@@ -35,7 +35,7 @@ class Settings(BaseSettings):
     psql_password: str
 
     @property
-    def psql_url(self):
+    def psql_url(self) -> str:
         if self.production:
             return self.database_url
         else:

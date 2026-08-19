@@ -22,7 +22,7 @@ import sqlalchemy
 
 
 app = FastAPI()
-engine = sqlalchemy.create_engine(settings.database_url)
+engine = sqlalchemy.create_engine(settings.psql_url)
 
 # Allows backend to access API
 app.add_middleware(
