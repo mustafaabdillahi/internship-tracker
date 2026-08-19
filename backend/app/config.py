@@ -1,5 +1,4 @@
 from pathlib import Path
-from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 BASE_DIR = Path(__file__).resolve().parents[2]
@@ -28,9 +27,9 @@ class Settings(BaseSettings):
         "openid"
     ]
     jwt_secret: str
-    postgres_host: str # postgres in Docker, localhost for local
     postgres_port: int = 5432
     psql_database: str
+    psql_host: str # postgres in Docker, localhost for local
     psql_password: str
 
     @property
@@ -38,7 +37,7 @@ class Settings(BaseSettings):
         return (
             f"postgresql+psycopg2://"
             f"postgres:{self.psql_password}"
-            f"@{self.postgres_host}:{self.postgres_port}"
+            f"@{self.psql_host}:{self.postgres_port}"
             f"/{self.psql_database}"
         )
 
