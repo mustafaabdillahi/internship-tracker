@@ -16,6 +16,7 @@ class Settings(BaseSettings):
     # URLs
     backend_url: str = "http://localhost:8000"
     frontend_url: str = "http://localhost:5173"
+    database_url: str
 
     # Other settings
     google_oauth_client_id: str
@@ -34,13 +35,16 @@ class Settings(BaseSettings):
     psql_password: str
 
     @property
-    def database_url(self):
-        return (
-            f"postgresql+psycopg2://"
-            f"{self.psql_user}:{self.psql_password}"
-            f"@{self.psql_host}:{self.postgres_port}"
-            f"/{self.psql_database}"
-        )
+    def psql_url(self):
+        if self.production:
+            return self.database_url
+        else:
+            return (
+                f"postgresql+psycopg2://"
+                f"{self.psql_user}:{self.psql_password}"
+                f"@{self.psql_host}:{self.postgres_port}"
+                f"/{self.psql_database}"
+            )
 
     @property
     def google_client_config(self) -> dict[str, dict[str, str]]:
