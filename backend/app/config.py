@@ -29,14 +29,15 @@ class Settings(BaseSettings):
     jwt_secret: str
     postgres_port: int = 5432
     psql_database: str
-    psql_host: str # postgres in Docker, localhost for local
+    psql_host: str = "postgres" # postgres in Docker, localhost for local
+    psql_user: str = "postgres"
     psql_password: str
 
     @property
-    def database_url(self) -> str:
+    def database_url(self):
         return (
             f"postgresql+psycopg2://"
-            f"postgres:{self.psql_password}"
+            f"{self.psql_user}:{self.psql_password}"
             f"@{self.psql_host}:{self.postgres_port}"
             f"/{self.psql_database}"
         )
