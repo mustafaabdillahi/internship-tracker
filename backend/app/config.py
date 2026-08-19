@@ -14,9 +14,11 @@ class Settings(BaseSettings):
     # Environment
     production: bool = False
 
-    # Settings
+    # URLs
+    backend_url: str = "http://localhost:8000"
     frontend_url: str = "http://localhost:5173"
-    google_oauth_callback_url: str = "http://localhost:8000/auth/google/callback"
+
+    # Other settings
     google_oauth_client_id: str
     google_oauth_client_secret: str
     google_oauth_scopes: list[str] = [
@@ -26,7 +28,7 @@ class Settings(BaseSettings):
         "openid"
     ]
     jwt_secret: str
-    postgres_host: str = "postgres" # postgres in Docker, localhost for local
+    postgres_host: str # postgres in Docker, localhost for local
     postgres_port: int = 5432
     psql_database: str
     psql_password: str
@@ -49,3 +51,6 @@ class Settings(BaseSettings):
             "token_uri": "https://oauth2.googleapis.com/token"
         }}
 
+    @property
+    def google_oauth_callback_url(self) -> str:
+        return f"{self.backend_url}/auth/google/callback"
