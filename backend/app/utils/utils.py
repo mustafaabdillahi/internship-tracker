@@ -90,10 +90,6 @@ def get_emails(credentials: Credentials, limit: int = 20) -> dict[str, dict[str,
                 tz=timezone.utc
             )
 
-            if sender is None:
-                print("NO SENDER HERE!",headers)
-                print("FULL PAYLOAD",payload,"\n\n\n")
-
             body_text, body_html = extract_body(payload)
             emails[msg["id"]] = {
                 "subject": subject,

@@ -26,7 +26,7 @@ function SyncGmailButton() {
 
         } catch(error) {
             setMessage("Failed to connect to the server.");
-            console.error(error);
+            console.error("Server connection error: " + error);
         } finally {
             setLoading(false);
         }

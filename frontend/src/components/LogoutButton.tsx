@@ -15,11 +15,17 @@ function LogoutButton() {
                 method: "POST",
                 credentials: "include"
             });
-            window.location.href = "/dashboard";
+
+            if(!response.ok) {
+                setMessage("Logout failed. Please try again.");
+                return;
+            }
+
+            window.location.href = "/login";
 
         } catch(error) {
             setMessage("Failed to connect to the server.");
-            console.error(error);
+            console.error("Logout error: " + error);
         } finally {
             setLoading(false);
         }
