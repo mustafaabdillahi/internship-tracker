@@ -2,6 +2,7 @@ from app.models.models import EmailRecord, User
 from datetime import datetime, timezone
 from googleapiclient import discovery
 from google.oauth2.credentials import Credentials
+from sqlalchemy.dialects import postgresql
 from sqlalchemy.orm import Session
 from typing import Any, Mapping
 import base64
@@ -82,12 +83,16 @@ def get_emails(credentials: Credentials, limit: int = 20) -> dict[str, dict[str,
             }
 
             subject = headers.get("subject")
-            sender = headers.get("sender")
+            sender = headers.get("sender") or headers.get("from")
             recipient = headers.get("delivered-to")
             received_at = datetime.fromtimestamp(
                 int(text["internalDate"]) / 1000,
                 tz=timezone.utc
             )
+
+            if sender is None:
+                print("NO SENDER HERE!",headers)
+                print("FULL PAYLOAD",payload,"\n\n\n")
 
             body_text, body_html = extract_body(payload)
             emails[msg["id"]] = {
@@ -105,17 +110,24 @@ def get_emails(credentials: Credentials, limit: int = 20) -> dict[str, dict[str,
     return emails
 
 
-def write_email_records(emails: dict[str, dict[str, str]], user: User, db: Session):
-    """Writes fetched emails to email record table in database."""
+def write_email_records(emails: dict[str, dict[str, str]], user: User, db: Session) -> int:
+    """Writes fetched emails to email record table in database. Returns the number of records inserted."""
 
+    records = []
     for id, email in emails.items():
-        record = EmailRecord(
-            id=id,
-            sender=email["sender"],
-            recipient=user.email,
-            subject=email["subject"],
-            received_at=email["received-at"],
-            raw_text=email["text"],
-            raw_html=email["html"]
-        )
-        db.add(record)
+        records.append({
+            "id": id,
+            "sender": email["sender"],
+            "recipient": user.email,
+            "subject": email["subject"],
+            "received_at": email["received-at"],
+            "raw_text": email["text"],
+            "raw_html": email["html"]
+        })
+
+    query = postgresql.insert(EmailRecord).values(records).on_conflict_do_nothing(
+        index_elements=[EmailRecord.id]
+    )
+    result = db.execute(query)
+
+    return result.rowcount #type: ignore

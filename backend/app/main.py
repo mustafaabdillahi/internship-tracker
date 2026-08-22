@@ -11,7 +11,7 @@ from app.utils import utils
 from datetime import datetime, timedelta, timezone
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import RedirectResponse
+from fastapi.responses import RedirectResponse, Response
 from google.auth.transport import requests as google_requests
 from google.oauth2 import id_token
 from google.oauth2.credentials import Credentials
@@ -242,11 +242,11 @@ def record_user_emails(request: Request):
         )
 
         emails = utils.get_emails(credentials)
-        utils.write_email_records(emails, user, db)
+        new_records = utils.write_email_records(emails, user, db)
         db.commit()
         db.refresh(user)
 
-    return {"DEBUG": f"Success. {len(emails)} emails recorded."}
+    return {"DEBUG": f"Success. {new_records} emails recorded."}
 
 
 @app.get("/applications")
@@ -304,6 +304,17 @@ def fetch_application(request: Request, application_id: int):
         "Application": application
     }
 
+
+@app.post("/auth/logout")
+def auth_logout(request: Request):
+    response = Response(status_code=204)
+    response.delete_cookie(
+        key="session",
+        secure=settings.production,
+        samesite="none" if settings.production else "lax",
+    )
+
+    return response
 
 
 @app.get("/")

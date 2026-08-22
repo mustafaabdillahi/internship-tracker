@@ -1,5 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { getApplications } from "../api/applications";
+import SyncGmailButton from "../components/SyncGmailButton";
+import LogoutButton from "../components/LogoutButton";
 
 function Dashboard() {
   const {
@@ -31,6 +33,8 @@ function Dashboard() {
         <h1>Dashboard</h1>
         <p>This is the dashboard page.</p>
         <pre>{JSON.stringify(data, null, 2)}</pre>
+        <SyncGmailButton />
+        <LogoutButton />
     </div>
   )
 }
