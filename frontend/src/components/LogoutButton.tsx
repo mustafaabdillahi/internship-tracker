@@ -1,6 +1,5 @@
 import { useState } from "react";
-
-const API_URL = import.meta.env.VITE_API_URL;
+import apiClient from "../api/client";
 
 function LogoutButton() {
     const [message, setMessage] = useState("");
@@ -11,16 +10,7 @@ function LogoutButton() {
         setMessage("");
 
         try {
-            const response = await fetch(`${API_URL}/auth/logout`, {
-                method: "POST",
-                credentials: "include"
-            });
-
-            if(!response.ok) {
-                setMessage("Logout failed. Please try again.");
-                return;
-            }
-
+            await apiClient.post("/auth/logout");
             window.location.href = "/login";
 
         } catch(error) {
@@ -34,7 +24,7 @@ function LogoutButton() {
     return (
         <>
             <button type="button" onClick={logOut} disabled={loading}>
-                Log out
+                {loading ? "Logging out..." : "Log out"}
             </button>
 
             {message && <p>{message}</p>}

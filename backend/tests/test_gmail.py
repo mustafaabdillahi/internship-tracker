@@ -17,7 +17,7 @@ def create_session_token(user_id: str, settings: Settings) -> str:
 def test_gmail_sync_without_session(client: TestClient):
     """Tests whether POST /gmail/sync returns status code 400 when there is no session."""
     response = client.post("/gmail/sync")
-    assert response.status_code == 400
+    assert response.status_code == 401
 
 
 def test_gmail_sync_user_not_found(client: TestClient):
@@ -88,10 +88,14 @@ def test_gmail_sync_success(client: TestClient):
         {
             "id": "email-1",
             "subject": "Hello",
+            "sender": "sender@fake.com",
+            "recipient": "recipient@fake.com"
         },
         {
             "id": "email-2",
             "subject": "Meeting",
+            "sender": "sender@fake.com",
+            "recipient": "recipient@fake.com"
         },
     ]
 
@@ -111,7 +115,7 @@ def test_gmail_sync_success(client: TestClient):
     ), patch(
         "app.main.utils.get_emails", return_value=fake_emails
     ) as mock_get_emails, patch(
-        "app.main.utils.write_email_records"
+        "app.main.utils.write_email_records", return_value=2
     ) as mock_write_email_records:
         response = client.post(
             "/gmail/sync",

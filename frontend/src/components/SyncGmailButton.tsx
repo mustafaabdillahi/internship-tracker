@@ -1,6 +1,5 @@
 import { useState } from "react";
-
-const API_URL = import.meta.env.VITE_API_URL;
+import apiClient from "../api/client";
 
 function SyncGmailButton() {
     const [message, setMessage] = useState("");
@@ -11,18 +10,8 @@ function SyncGmailButton() {
         setMessage("");
 
         try {
-            const response = await fetch(`${API_URL}/gmail/sync`, {
-                method: "POST",
-                credentials: "include"
-            });
-
-            const data = await response.json();
-            if(!response.ok) {
-                setMessage(data.detail ?? "Something went wrong.");
-                return;
-            }
-
-            setMessage(data.DEBUG);
+            const response = await apiClient.post("/gmail/sync");
+            setMessage(response.data.DEBUG);
 
         } catch(error) {
             setMessage("Failed to connect to the server.");
@@ -35,7 +24,7 @@ function SyncGmailButton() {
     return (
         <>
             <button type="button" onClick={syncGmail} disabled={loading}>
-                Sync emails
+                {loading ? "Syncing emails..." : "Sync emails"}
             </button>
 
             {message && <p>{message}</p>}

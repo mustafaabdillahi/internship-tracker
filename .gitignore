@@ -363,3 +363,6 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Dumped test emails
+docs/test_emails.json

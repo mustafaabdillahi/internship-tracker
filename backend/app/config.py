@@ -16,7 +16,7 @@ class Settings(BaseSettings):
     # URLs
     backend_url: str = "http://localhost:8000"
     frontend_url: str = "http://localhost:5173"
-    database_url: str
+    database_url: str | None = None
 
     # Other settings
     google_oauth_client_id: str
@@ -36,7 +36,7 @@ class Settings(BaseSettings):
 
     @property
     def psql_url(self) -> str:
-        if self.production:
+        if self.production and self.database_url is not None:
             return self.database_url
         else:
             return (

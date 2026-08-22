@@ -2,10 +2,12 @@ from app.models.models import EmailRecord, User
 from datetime import datetime, timezone
 from googleapiclient import discovery
 from google.oauth2.credentials import Credentials
+from pathlib import Path
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.orm import Session
 from typing import Any, Mapping
 import base64
+import json
 import secrets
 import string
 
@@ -50,12 +52,12 @@ def extract_body(payload: dict[str, Any]) -> tuple[str | None, str | None]:
         if plain_text is None and part_plain is not None:
             plain_text = part_plain
         if html is None and part_html is not None:
-            part_html = part_html
+            html = part_html
 
     return plain_text, html
 
 
-def get_emails(credentials: Credentials, limit: int = 20) -> dict[str, dict[str, str]]:
+def get_emails(credentials: Credentials, limit: int = 20, dump_json: bool = False) -> dict[str, dict[str, Any]]:
     """Returns the user's most recent emails."""
     service = discovery.build("gmail", "v1", credentials=credentials)
     result = service.users().messages().list(
@@ -103,10 +105,19 @@ def get_emails(credentials: Credentials, limit: int = 20) -> dict[str, dict[str,
         except Exception as e:
             print(f"Failed to process email {msg['id']}: {e}")
 
+    if dump_json:
+        dump_emails_into_json(emails)
+
     return emails
 
+def dump_emails_into_json(emails: dict[str, dict[str, Any]]):
+    """Dumps retrieved emails into a JSON email (FOR TESTING ONLY)."""
+    json_filepath = Path(__file__).parents[2] / "test_emails.json"
+    with open(json_filepath, "w+") as file:
+        json.dump(emails, file, default=str, indent=4)
 
-def write_email_records(emails: dict[str, dict[str, str]], user: User, db: Session) -> int:
+
+def write_email_records(emails: dict[str, dict[str, Any]], user: User, db: Session) -> int:
     """Writes fetched emails to email record table in database. Returns the number of records inserted."""
 
     records = []

@@ -7,6 +7,8 @@ if not settings.production:
 
 from app.database import SessionLocal
 from app.models.models import Application, User
+from app.schemas.application import ApplicationRead
+from app.schemas.user import UserRead
 from app.utils import utils
 from datetime import datetime, timedelta, timezone
 from fastapi import FastAPI, HTTPException, Request
@@ -154,7 +156,7 @@ def login_google_callback(request: Request):
 
 
 # Test page used to store user information
-@app.get("/auth/me")
+@app.get("/auth/me", response_model=UserRead)
 def auth_user_info(request: Request):
     session = request.cookies.get("session")
     if not session:
@@ -249,7 +251,7 @@ def record_user_emails(request: Request):
     return {"DEBUG": f"Success. {new_records} emails recorded."}
 
 
-@app.get("/applications")
+@app.get("/applications", response_model=list[ApplicationRead])
 def fetch_applications(request: Request):
     session = request.cookies.get("session")
     if not session:
@@ -268,13 +270,10 @@ def fetch_applications(request: Request):
 
         applications = db.query(Application).filter(Application.user_id == payload["sub"]).all()
 
-    return {
-        "DEBUG": f"Success. {len(applications)} applications retrieved.",
-        "Applications": applications
-    }
+        return applications
 
 
-@app.get("/applications/{application_id}")
+@app.get("/applications/{application_id}", response_model=ApplicationRead)
 def fetch_application(request: Request, application_id: int):
     session = request.cookies.get("session")
     if not session:
@@ -299,10 +298,7 @@ def fetch_application(request: Request, application_id: int):
         if application is None:
             raise HTTPException(status_code=404, detail="Application not found.")
 
-    return {
-        "DEBUG": f"Success.",
-        "Application": application
-    }
+        return application
 
 
 @app.post("/auth/logout")
