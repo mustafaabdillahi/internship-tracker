@@ -18,6 +18,11 @@ class Settings(BaseSettings):
     frontend_url: str = "http://localhost:5173"
     database_url: str | None = None
 
+    # AI settings
+    ai_classifier_model: str = "gpt-5-nano"
+    ai_extractor_model: str = "gpt-5-mini"
+    openai_api_key: str
+
     # Other settings
     google_oauth_client_id: str
     google_oauth_client_secret: str
