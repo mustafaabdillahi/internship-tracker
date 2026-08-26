@@ -1,4 +1,4 @@
-from app.models.models import ApplicationStage
+from app.models.enums import ApplicationStage
 from datetime import datetime
 from pydantic import BaseModel, ConfigDict
 

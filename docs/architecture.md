@@ -60,15 +60,18 @@ Ref for_company: application.companyid ?> company.id
 # LLM JSON schema
 Emails are evaluated by the AI in two stages: classification and extraction. First, emails are passed through GPT 5 nano to determine whether it is likely related to an immediate application status update. Emails with a high enough confidence level are then passed to the extractor model GPT 5 mini, which extracts key information.
 
-The classifier will use the following schema:
+The classifier will be based on the following schema:
 ```JSON
 {
   "name": "email_classification",
-  "description": "Scores how likely an email contains a new job application status update or required candidate action. 1 is definite, 0 is definitely not. Classify as relevant ONLY if the email communicates a change, confirmation, decision, or required action concerning a specific application that the candidate has already submitted. Do NOT classify as relevant if the email is, for example: advertising an  open position; inviting the candidate to apply; announcing an application submission deadline; describing a recruitment event; general careers marketing; confirming that applications are currently open, or providing generic information about the recruitment process.",
+  "description": "Classify whether an email containss a new job application status update / required candidate action or not. Provide a confidence level with this as well, between 0 and 1. Classify as relevant ONLY if the email communicates a change, confirmation, decision, or required action concerning a specific application that the candidate has already submitted. Do NOT classify as relevant if the email is, for example: advertising an  open position; inviting the candidate to apply; announcing an application submission deadline; describing a recruitment event; general careers marketing; confirming that applications are currently open, or providing generic information about the recruitment process.",
   "strict": true,
   "schema": {
     "type": "object",
     "properties": {
+      "is_relevant": {
+        "type": "boolean"
+      },
       "confidence": {
         "type": "number",
         "minimum": 0,
@@ -76,7 +79,7 @@ The classifier will use the following schema:
       }
     },
     "additionalProperties": false,
-    "required": ["confidence"]
+    "required": ["is_relevant", "confidence"]
   }
 }
 ```

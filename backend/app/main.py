@@ -5,8 +5,9 @@ if not settings.production:
     import os
     os.environ["OAUTHLIB_INSECURE_TRANSPORT"] = "1"
 
+from app.ai import classifier
 from app.database import SessionLocal
-from app.models.models import Application, User
+from app.models.database_models import Application, EmailProcessing, EmailRecord, User
 from app.schemas.application import ApplicationRead
 from app.schemas.user import UserRead
 from app.utils import utils
@@ -301,8 +302,58 @@ def fetch_application(request: Request, application_id: int):
         return application
 
 
+@app.get("/emails/process/{email_id}")
+def process_email(request: Request, email_id: int):
+    session = request.cookies.get("session")
+    if not session:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+
+    payload = jwt.decode(
+        session,
+        settings.jwt_secret,
+        algorithms=["HS256"]
+    )
+
+    with SessionLocal() as db:
+        user = db.query(EmailRecord).filter(User.id == payload["sub"]).first()
+        if user is None:
+            raise HTTPException(status_code=404, detail="User not found.")
+
+        email = db.query(EmailRecord).filter(
+            EmailRecord.id == email_id,
+            EmailRecord.user_id == payload["sub"]
+        ).first()
+
+        if email is None:
+            raise HTTPException(status_code=404, detail="Email not found.")
+
+        processed_email = db.query(EmailProcessing).filter(
+            EmailProcessing.email_id == email_id,
+            EmailProcessing.user_id == payload["sub"]
+        ).first()
+
+        # If e-mail already processed, return the stored information
+        if processed_email is not None:
+            return {
+                "success": "Email already processed",
+                "is_relevant": processed_email.is_relevant,
+                "confidence": processed_email.classifier_confidence
+            }
+        
+        output = classifier.classify_email(email)
+        utils.write_processed_email_record(output, email_id, payload["sub"], db)
+
+        db.commit()
+
+        return {
+            "success": "Processed email recorded",
+            "is_relevant": output.is_relevant if output is not None else False,
+            "confidence": output.confidence if output is not None else 1.0
+        }
+
+
 @app.post("/auth/logout")
-def auth_logout(request: Request):
+def auth_logout():
     response = Response(status_code=204)
     response.delete_cookie(
         key="session",

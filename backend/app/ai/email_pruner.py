@@ -1,3 +1,4 @@
+from app.models.database_models import EmailRecord
 from typing import Any
 import html
 import re
@@ -105,19 +106,19 @@ def prune_sentences(sentences: list[str]) -> list[str]:
     return [sentences[i] for i in sorted(keep)]
 
 
-def prune_emails(emails: dict[str, dict[str, Any]]) -> dict[str, dict[str, str]]:
+def prune_emails(emails: list[EmailRecord]) -> dict[int, dict[str, str]]:
     """Prunes emails to remove unnecessary information and HTML noise."""
     pruned = {}
 
-    for id, email in emails.items():
+    for email in emails:
         
         # Extract text from text/html field
-        if email["text"] is not None:
-            text = html.unescape(email["text"])
+        if email.raw_text is not None:
+            text = html.unescape(email.raw_text)
         else:
             text = html.unescape(re.sub(
                 HTML_CLEANER, " ",
-                re.sub(STRUCTURAL_TAGS_CLEANER, "\n", email["html"])
+                re.sub(STRUCTURAL_TAGS_CLEANER, "\n", email.raw_html) # type: ignore
             ).strip())
 
         # Use regex rules to clean text
@@ -128,14 +129,14 @@ def prune_emails(emails: dict[str, dict[str, Any]]) -> dict[str, dict[str, str]]
         text = re.sub(URL_CLEANER, "", text).strip()
 
         # Remove duplicate headers
-        while text.startswith(email.get("subject")): # type: ignore
-            text = text[len(email.get("subject")):].lstrip() # type: ignore
+        while text.startswith(email.subject): # type: ignore
+            text = text[len(email.subject):].lstrip() # type: ignore
 
         # Prune sentences semantically, then join together the remaining ones
         text = " ".join(prune_sentences(SENTENCE_SPLITTER.split(text))).strip()
 
-        pruned[id] =  {
-            "subject": email["subject"],
+        pruned[email.id] =  {
+            "subject": email.subject,
             "text": text
         }
 

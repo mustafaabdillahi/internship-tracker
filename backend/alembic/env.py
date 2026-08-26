@@ -1,5 +1,5 @@
 from app.config import Settings
-from app.models.models import Base
+from app.models.database_models import Base
 from alembic import context
 from logging.config import fileConfig
 from sqlalchemy import engine_from_config
@@ -25,7 +25,7 @@ target_metadata = Base.metadata
 settings = Settings() # type: ignore
 config.set_main_option(
     "sqlalchemy.url",
-    settings.database_url
+    settings.psql_url
 )
 
 

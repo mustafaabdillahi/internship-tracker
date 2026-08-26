@@ -1,4 +1,7 @@
-from app.models.models import EmailRecord, User
+from app.config import Settings
+from app.models.ai_models import ClassifiedEmail
+from app.models.database_models import EmailProcessing, EmailRecord, User
+from app.models.enums import ProcessingStatus
 from datetime import datetime, timezone
 from googleapiclient import discovery
 from google.oauth2.credentials import Credentials
@@ -12,6 +15,7 @@ import secrets
 import string
 
 characters = string.ascii_letters + string.digits
+settings = Settings() # type: ignore
 
 def create_google_user(google_user: Mapping[str, Any], refresh_token: str, db: Session) -> User:
     """Adds a user from a Google account to the user table in database. Returns the user object."""
@@ -110,6 +114,7 @@ def get_emails(credentials: Credentials, limit: int = 20, dump_json: bool = Fals
 
     return emails
 
+
 def dump_emails_into_json(emails: dict[str, dict[str, Any]]):
     """Dumps retrieved emails into a JSON email (FOR TESTING ONLY)."""
     json_filepath = Path(__file__).parents[2] / "test_emails.json"
@@ -123,7 +128,9 @@ def write_email_records(emails: dict[str, dict[str, Any]], user: User, db: Sessi
     records = []
     for id, email in emails.items():
         records.append({
-            "id": id,
+            "provider": "gmail",
+            "provider_message_id": id,
+            "user_id": user.id,
             "sender": email["sender"],
             "recipient": user.email,
             "subject": email["subject"],
@@ -138,3 +145,31 @@ def write_email_records(emails: dict[str, dict[str, Any]], user: User, db: Sessi
     result = db.execute(query)
 
     return result.rowcount #type: ignore
+
+
+def write_processed_email_record(record: ClassifiedEmail | None, email_id: int, user_id: str, db: Session):
+    """Writes a processed email record to database."""
+    process_id = "".join(secrets.choice(characters) for _ in range(36))
+
+    if record is not None:
+        process_obj = EmailProcessing(
+            id=process_id,
+            email_id=email_id,
+            user_id=user_id,
+            status=ProcessingStatus.PROCESSING,
+            is_relevant=record.is_relevant,
+            classifier_confidence=record.confidence,
+            classifier_version=settings.ai_classifier_version
+        )
+    else:
+        process_obj = EmailProcessing(
+            id=process_id,
+            email_id=email_id,
+            user_id=user_id,
+            status=ProcessingStatus.COMPLETED,
+            is_relevant=False,
+            classifier_confidence=1.0,
+            classifier_version=settings.ai_classifier_version
+        )
+
+    db.add(process_obj)

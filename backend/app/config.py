@@ -20,6 +20,7 @@ class Settings(BaseSettings):
 
     # AI settings
     ai_classifier_model: str = "gpt-5-nano"
+    ai_classifier_version: str = "1"
     ai_extractor_model: str = "gpt-5-mini"
     openai_api_key: str
 
