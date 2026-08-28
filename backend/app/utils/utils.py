@@ -140,7 +140,7 @@ def write_email_records(emails: dict[str, dict[str, Any]], user: User, db: Sessi
         })
 
     query = postgresql.insert(EmailRecord).values(records).on_conflict_do_nothing(
-        index_elements=[EmailRecord.id]
+        index_elements=[EmailRecord.provider, EmailRecord.provider_message_id]
     )
     result = db.execute(query)
 
