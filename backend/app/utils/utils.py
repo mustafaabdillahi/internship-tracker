@@ -1,20 +1,28 @@
 from app.config import Settings
 from app.models.ai_models import ClassifiedEmail, ExtractedEmail
-from app.models.database_models import Application, EmailProcessing, EmailRecord, StageEvent, User
-from app.models.enums import ProcessingStatus
+from app.models.database_models import Application, Company, CompanyAlias, EmailProcessing, EmailRecord, StageEvent, User
+from app.models.enums import ApplicationStage, ProcessingStatus
 from datetime import datetime, timezone
 from googleapiclient import discovery
 from google.oauth2.credentials import Credentials
 from pathlib import Path
+from sqlalchemy import func
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.orm import Session
 from typing import Any, Mapping
 import base64
 import json
+import re
 import secrets
 import string
+import unicodedata
 
 characters = string.ascii_letters + string.digits
+LEGAL_SUFFIX_RE = re.compile(
+    r"\b(llc|ltd|limited|inc|incorporated|corp|corporation|company|co|plc|gmbh|ag|sa)\b",
+    re.IGNORECASE,
+)
+
 settings = Settings() # type: ignore
 
 def create_google_user(google_user: Mapping[str, Any], refresh_token: str, db: Session) -> User:
@@ -172,26 +180,80 @@ def write_processed_email_record(classified: ClassifiedEmail | None, extracted: 
         process_obj.extractor_version = settings.ai_extractor_version
         process_obj.company_raw = extracted.company_raw
         process_obj.role_raw = extracted.role
-        write_application(extracted, user_id, process_id, date_applied, db) #type: ignore
+
+        company_id = get_company(extracted, db)
+        update_application(
+            extracted,
+            company_id,
+            user_id,
+            process_id,
+            date_applied, #type: ignore
+            db
+        )
         
     db.add(process_obj)
 
 
-def write_application(extracted: ExtractedEmail, user_id: str, process_id: str, date_applied: datetime, db: Session):
-    application = Application(
-        user_id=user_id,
-        role=extracted.role,
-        stage=extracted.status,
-        date_applied=date_applied,
-        loc=extracted.location
-    )
-    db.add(application)
-    db.flush() # Populate application.id by executing INSERT
+def get_company(extracted: ExtractedEmail, db: Session) -> str:
+    """Gets the company ID from extracted email.
+    If it doesn't exist, creates a new company record and returns its ID."""
+    company = db.query(CompanyAlias).filter(
+        func.lower(CompanyAlias.alias) == func.lower(extracted.company_raw)
+    ).first()
+
+    if company is not None:
+        company_id = company.company_id
+    else:
+        normalised_company_name = normalise_company_name(extracted.company_raw)
+        company = db.query(CompanyAlias).filter(
+            func.lower(CompanyAlias.alias) == func.lower(normalised_company_name)
+        ).first()
+
+        if company is not None:
+            company_id = company.company_id
+        else:
+            # Create new company record and alias record
+            company_id = "".join(secrets.choice(characters) for _ in range(8))
+            company = Company(
+                id=company_id,
+                name=normalised_company_name
+            )
+            db.add(company)
+
+        alias = CompanyAlias(
+            company_id=company_id,
+            alias=normalised_company_name
+        )
+        db.add(alias)
+
+    return company_id
+
+
+def update_application(extracted: ExtractedEmail, company_id: str, user_id: str, process_id: str, date_applied: datetime, db: Session):
+    """Creates an application if new, or updates an existing one."""
+    if extracted.status == ApplicationStage.APPLIED:
+        application = Application(
+            user_id=user_id,
+            company_id=company_id,
+            role=extracted.role,
+            stage=extracted.status,
+            date_applied=date_applied,
+            loc=extracted.location
+        )
+        db.add(application)
+        db.flush() # Populate application.id by executing INSERT
+    else:
+        application = db.query(Application).filter(
+            Application.company_id == company_id,
+            Application.user_id == user_id
+        ).first()
+        application.stage = extracted.status # type: ignore
+        
 
     stage_event_id = "".join(secrets.choice(characters) for _ in range(12))
     stage_event = StageEvent(
         id=stage_event_id,
-        application_id=application.id,
+        application_id=application.id, #type: ignore
         stage=extracted.status,
         processing_id=process_id,
         dt=date_applied,
@@ -202,3 +264,17 @@ def write_application(extracted: ExtractedEmail, user_id: str, process_id: str, 
         notes=extracted.notes
     )
     db.add(stage_event)
+
+
+def normalise_company_name(name: str) -> str:
+    """Normalises a company name."""
+    # Remove accents
+    name = "".join(
+        c for c in unicodedata.normalize("NFKD", name)
+        if not unicodedata.combining(c)
+    )
+
+    # Remove legal suffixes
+    name = LEGAL_SUFFIX_RE.sub("", name)
+
+    return name.strip()

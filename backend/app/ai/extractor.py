@@ -34,11 +34,19 @@ Company:
   unless genuinely part of the common name.
 - company_raw should preserve the name as it appears in the email.
 
-Role and location:
-- Extract only when identifiable.
+Role:
+- Extract only the actual job function or position title.
+- Remove company names, programme names, cohort years, and employment-type
+  terms such as "Internship" or "Graduate Programme".
+- Maximum length is 50 characters.
+- Return null when the actual role cannot be identified.
+
+Location:
+- Extract the job's stated work location only.
 - Normalise obvious abbreviations and location formats.
-- Do not confuse company headquarters, sender location, or interview
-  location with the job location.
+- Do not use the company headquarters, sender location, or interview location
+  as the job location.
+- Return null when the job location cannot be identified.
 
 Deadline:
 - Extract only deadlines requiring an action from the candidate.

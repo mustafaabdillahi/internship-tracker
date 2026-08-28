@@ -315,7 +315,7 @@ def process_email(request: Request, email_id: int):
     )
 
     with SessionLocal() as db:
-        user = db.query(EmailRecord).filter(User.id == payload["sub"]).first()
+        user = db.query(User).filter(User.id == payload["sub"]).first()
         if user is None:
             raise HTTPException(status_code=404, detail="User not found.")
 

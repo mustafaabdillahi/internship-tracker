@@ -4,8 +4,8 @@ from pydantic import BaseModel, Field
 
 class ExtractedEmail(BaseModel):
     status: ApplicationStage
-    company: str | None
-    company_raw: str | None
+    company: str
+    company_raw: str
     role: str | None
     location: str | None
     deadline: datetime | None

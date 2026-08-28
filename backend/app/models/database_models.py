@@ -45,7 +45,7 @@ class Application(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     user_id: Mapped[str] = mapped_column(String(8), ForeignKey("user.id"), nullable=False)
-    company_id: Mapped[str | None] = mapped_column(String(8), ForeignKey("company.id"))
+    company_id: Mapped[str] = mapped_column(String(8), ForeignKey("company.id"), nullable=False)
     role: Mapped[str | None] = mapped_column(String(50))
     stage: Mapped[ApplicationStage] = mapped_column(SQLAlchemyEnum(ApplicationStage), nullable=False)
     date_applied: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
@@ -187,7 +187,6 @@ class EmailProcessing(Base):
     )
 
 
-
 class Company(Base):
     __tablename__ = "company"
 
@@ -205,4 +204,20 @@ class Company(Base):
 
     applications: Mapped[list["Application"]] = relationship(
         back_populates="company"
+    )
+
+    aliases: Mapped[list["CompanyAlias"]] = relationship(
+        back_populates="company",
+        cascade="all, delete-orphan"
+    )
+
+
+class CompanyAlias(Base):
+    __tablename__ = "company_alias"
+
+    company_id: Mapped[str] = mapped_column(String(8), ForeignKey("company.id"), primary_key=True)
+    alias: Mapped[str] = mapped_column(String(255), primary_key=True)
+
+    company: Mapped["Company"] = relationship(
+        back_populates="aliases"
     )
