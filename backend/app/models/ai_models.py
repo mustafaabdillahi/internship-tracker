@@ -7,7 +7,7 @@ class ExtractedEmail(BaseModel):
     company: str | None
     company_raw: str | None
     role: str | None
-    locatioon: str | None
+    location: str | None
     deadline: datetime | None
     deadline_type: DeadlineType | None
     interview_date: datetime | None

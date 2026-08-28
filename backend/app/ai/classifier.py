@@ -1,8 +1,7 @@
-from app.ai.email_pruner import prune_emails
 from app.config import Settings
 from app.models.ai_models import ClassifiedEmail
-from app.models.database_models import EmailRecord
 from openai import OpenAI
+import tenacity
 
 settings = Settings() # type: ignore
 client = OpenAI(api_key=settings.openai_api_key)
@@ -28,13 +27,14 @@ Return a confidence score between 0 and 1.
 """
 
 
-def classify_email(email: EmailRecord) -> ClassifiedEmail | None:
+@tenacity.retry(
+    wait=tenacity.wait_random_exponential(min=1, max=5),
+    stop=tenacity.stop_after_attempt(5)
+)
+def classify_email(email: dict[str, str]) -> ClassifiedEmail | None:
     """Uses AI to classify a pruned email as to whether it is an internship status update."""
-
-    pruned = prune_emails([email])[email.id]
-
     # If text is empty/null, do not call AI at all
-    if pruned["text"] is None or len(pruned["text"]) == 0:
+    if email["text"] is None or len(email["text"]) == 0:
         return None
 
     response = client.responses.parse(
@@ -46,7 +46,7 @@ def classify_email(email: EmailRecord) -> ClassifiedEmail | None:
             },
             {
                 "role": "user",
-                "content": str(pruned)
+                "content": str(email)
             }
         ],
         text_format=ClassifiedEmail

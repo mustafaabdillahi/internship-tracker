@@ -1,4 +1,4 @@
-from app.models.enums import ApplicationStage, ProcessingStatus
+from app.models.enums import ApplicationStage, DeadlineType, InterviewType, ProcessingStatus
 from datetime import datetime, timezone
 from sqlalchemy import Boolean, CheckConstraint, DateTime, Enum as SQLAlchemyEnum, Float, ForeignKey, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
@@ -77,6 +77,12 @@ class StageEvent(Base):
     role: Mapped[str | None] = mapped_column(String(50))
     processing_id: Mapped[str] = mapped_column(String(36), ForeignKey("email_processing.id"), nullable=False, unique=True)
     dt: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    deadline: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    deadline_type: Mapped[DeadlineType | None] = mapped_column(SQLAlchemyEnum(DeadlineType))
+    interview_date: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    interview_type: Mapped[InterviewType | None] = mapped_column(SQLAlchemyEnum(InterviewType))
+    notes: Mapped[str | None] = mapped_column(Text)
+
     created_at: Mapped[datetime]  = mapped_column(
         DateTime(timezone=True),
         default=lambda: datetime.now(timezone.utc),
@@ -158,6 +164,8 @@ class EmailProcessing(Base):
 
     company_raw: Mapped[str | None] = mapped_column(String(255))
     role_raw: Mapped[str | None] = mapped_column(String(50))
+    next_action: Mapped[str | None] = mapped_column(Text)
+
     created_at: Mapped[datetime]  = mapped_column(
         DateTime(timezone=True),
         default=lambda: datetime.now(timezone.utc),

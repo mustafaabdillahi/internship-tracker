@@ -1,6 +1,6 @@
 from app.config import Settings
-from app.models.ai_models import ClassifiedEmail
-from app.models.database_models import EmailProcessing, EmailRecord, User
+from app.models.ai_models import ClassifiedEmail, ExtractedEmail
+from app.models.database_models import Application, EmailProcessing, EmailRecord, StageEvent, User
 from app.models.enums import ProcessingStatus
 from datetime import datetime, timezone
 from googleapiclient import discovery
@@ -147,29 +147,58 @@ def write_email_records(emails: dict[str, dict[str, Any]], user: User, db: Sessi
     return result.rowcount #type: ignore
 
 
-def write_processed_email_record(record: ClassifiedEmail | None, email_id: int, user_id: str, db: Session):
+def write_processed_email_record(classified: ClassifiedEmail | None, extracted: ExtractedEmail | None, email_id: int, user_id: str, date_applied: datetime | None, db: Session):
     """Writes a processed email record to database."""
     process_id = "".join(secrets.choice(characters) for _ in range(36))
+    process_obj = EmailProcessing(
+        id=process_id,
+        email_id=email_id,
+        user_id=user_id,
+        status=ProcessingStatus.COMPLETED,
+        classifier_version=settings.ai_classifier_version
+    )
 
-    if record is not None:
-        process_obj = EmailProcessing(
-            id=process_id,
-            email_id=email_id,
-            user_id=user_id,
-            status=ProcessingStatus.PROCESSING,
-            is_relevant=record.is_relevant,
-            classifier_confidence=record.confidence,
-            classifier_version=settings.ai_classifier_version
-        )
+    if classified is not None:
+        process_obj.is_relevant = classified.is_relevant
+        process_obj.classifier_confidence = classified.confidence
     else:
-        process_obj = EmailProcessing(
-            id=process_id,
-            email_id=email_id,
-            user_id=user_id,
-            status=ProcessingStatus.COMPLETED,
-            is_relevant=False,
-            classifier_confidence=1.0,
-            classifier_version=settings.ai_classifier_version
-        )
+        process_obj.is_relevant = False
+        process_obj.classifier_confidence = 1.0
 
+    # If email was extracted, add additional info, then add application
+    if extracted is not None:
+        process_obj.extractor_confidence = extracted.confidence
+        process_obj.extractor_evidence = extracted.evidence
+        process_obj.extractor_version = settings.ai_extractor_version
+        process_obj.company_raw = extracted.company_raw
+        process_obj.role_raw = extracted.role
+        write_application(extracted, user_id, process_id, date_applied, db) #type: ignore
+        
     db.add(process_obj)
+
+
+def write_application(extracted: ExtractedEmail, user_id: str, process_id: str, date_applied: datetime, db: Session):
+    application = Application(
+        user_id=user_id,
+        role=extracted.role,
+        stage=extracted.status,
+        date_applied=date_applied,
+        loc=extracted.location
+    )
+    db.add(application)
+    db.flush() # Populate application.id by executing INSERT
+
+    stage_event_id = "".join(secrets.choice(characters) for _ in range(12))
+    stage_event = StageEvent(
+        id=stage_event_id,
+        application_id=application.id,
+        stage=extracted.status,
+        processing_id=process_id,
+        dt=date_applied,
+        deadline=extracted.deadline,
+        deadline_type=extracted.deadline_type,
+        interview_date=extracted.interview_date,
+        interview_type=extracted.interview_type,
+        notes=extracted.notes
+    )
+    db.add(stage_event)

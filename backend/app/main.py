@@ -5,7 +5,7 @@ if not settings.production:
     import os
     os.environ["OAUTHLIB_INSECURE_TRANSPORT"] = "1"
 
-from app.ai import classifier
+from app.ai import classifier, email_pruner, extractor
 from app.database import SessionLocal
 from app.models.database_models import Application, EmailProcessing, EmailRecord, User
 from app.schemas.application import ApplicationRead
@@ -339,17 +339,38 @@ def process_email(request: Request, email_id: int):
                 "is_relevant": processed_email.is_relevant,
                 "confidence": processed_email.classifier_confidence
             }
-        
-        output = classifier.classify_email(email)
-        utils.write_processed_email_record(output, email_id, payload["sub"], db)
+
+        pruned_email = email_pruner.prune_emails([email])[email_id]
+        output = classifier.classify_email(pruned_email)
+        if output is not None and output.is_relevant:
+            extracted = extractor.extract_email(pruned_email)
+        else:
+            extracted = None
+            
+        utils.write_processed_email_record(
+            output,
+            extracted,
+            email_id,
+            payload["sub"],
+            email.received_at,
+            db
+        )
 
         db.commit()
 
-        return {
-            "success": "Processed email recorded",
-            "is_relevant": output.is_relevant if output is not None else False,
-            "confidence": output.confidence if output is not None else 1.0
-        }
+        if output is not None and output.is_relevant:
+            return {
+                "success": "Processed email recorded",
+                "pruned_email": pruned_email,
+                "output": extracted
+            }
+        else:
+            return {
+                "success": "Processed email recorded",
+                "pruned_email": pruned_email,
+                "is_relevant": output.is_relevant if output is not None else False,
+                "confidence": output.confidence if output is not None else 1.0
+            }
 
 
 @app.post("/auth/logout")
