@@ -1,11 +1,10 @@
-from app.models.enums import ApplicationStage
 from datetime import datetime
 from pydantic import BaseModel, ConfigDict
 
 class UserRead(BaseModel):
     id: str
-    firstname: str
-    surname: str
+    firstname: str | None
+    surname: str | None
     email: str
     created_at: datetime
 

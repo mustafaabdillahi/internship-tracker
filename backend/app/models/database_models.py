@@ -1,6 +1,6 @@
 from app.models.enums import ApplicationStage, DeadlineType, InterviewType, ProcessingStatus
 from datetime import datetime, timezone
-from sqlalchemy import Boolean, CheckConstraint, DateTime, Enum as SQLAlchemyEnum, Float, ForeignKey, Integer, String, Text, UniqueConstraint
+from sqlalchemy import Boolean, CheckConstraint, DateTime, Enum as SQLAlchemyEnum, Float, ForeignKey, Integer, JSON, String, Text, UniqueConstraint
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 class Base(DeclarativeBase):
@@ -67,6 +67,11 @@ class Application(Base):
         order_by="StageEvent.dt"
     )
 
+    threads: Mapped[list["ApplicationThread"]] = relationship(
+        back_populates="application",
+        cascade="all, delete-orphan"
+    )
+
 
 class StageEvent(Base):
     __tablename__ = "stage_event"
@@ -111,6 +116,7 @@ class EmailRecord(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     provider: Mapped[str] = mapped_column(String(63), nullable=False)
     provider_message_id: Mapped[str] = mapped_column(String(255), nullable=False)
+    provider_thread_id: Mapped[str] = mapped_column(String(255), nullable=False)
     user_id: Mapped[str] = mapped_column(String(8), ForeignKey("user.id"), nullable=False)
     sender: Mapped[str] = mapped_column(String(320), nullable=False)
     recipient: Mapped[str] = mapped_column(String(320), nullable=False)
@@ -186,6 +192,24 @@ class EmailProcessing(Base):
         back_populates="email_processings"
     )
 
+    manual_review_items: Mapped[list["ManualReviewItem"]] = relationship(
+        back_populates="email"
+    )
+
+
+class ApplicationThread(Base):
+    __tablename__ = "application_thread"
+
+    application_id: Mapped[int] = mapped_column(Integer, ForeignKey("application.id"), primary_key=True)
+    provider: Mapped[str] = mapped_column(String(255), primary_key=True)
+    provider_thread_id: Mapped[str] = mapped_column(String(255), primary_key=True)
+    confidence: Mapped[float] = mapped_column(Float, nullable=False)
+    source: Mapped[str] = mapped_column(String(50), nullable=False)
+
+    application: Mapped["Application"] = relationship(
+        back_populates="threads"
+    )
+
 
 class Company(Base):
     __tablename__ = "company"
@@ -220,4 +244,19 @@ class CompanyAlias(Base):
 
     company: Mapped["Company"] = relationship(
         back_populates="aliases"
+    )
+
+
+class ManualReviewItem(Base):
+    __tablename__ = "manual_review_item"
+
+    id = mapped_column(Integer, primary_key=True, autoincrement=True)
+    email_id = mapped_column(String(36), ForeignKey("email_processing.id"))
+    reason = mapped_column(Text)
+    candidate_application_ids = mapped_column(JSON)  # For a review UI to show options
+    resolved = mapped_column(Boolean, default=False)
+    created_at = mapped_column(DateTime, default=datetime.now(timezone.utc))
+
+    email: Mapped["EmailProcessing"] = relationship(
+        back_populates="manual_review_items"
     )

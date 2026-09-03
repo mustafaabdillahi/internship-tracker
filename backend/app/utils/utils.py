@@ -1,7 +1,8 @@
 from app.config import Settings
 from app.models.ai_models import ClassifiedEmail, ExtractedEmail
-from app.models.database_models import Application, Company, CompanyAlias, EmailProcessing, EmailRecord, StageEvent, User
-from app.models.enums import ApplicationStage, ProcessingStatus
+from app.models.database_models import Company, CompanyAlias, EmailProcessing, EmailRecord, User
+from app.models.enums import ProcessingStatus
+from app.utils import application_utils, common_utils
 from datetime import datetime, timezone
 from googleapiclient import discovery
 from google.oauth2.credentials import Credentials
@@ -13,21 +14,26 @@ from typing import Any, Mapping
 import base64
 import json
 import re
-import secrets
-import string
 import unicodedata
 
-characters = string.ascii_letters + string.digits
 LEGAL_SUFFIX_RE = re.compile(
-    r"\b(llc|ltd|limited|inc|incorporated|corp|corporation|company|co|plc|gmbh|ag|sa)\b",
+    r"\b(llc|ltd|limited|inc|incorporated|corp|corporation|company|co|employment|plc|gmbh|ag|sa)\b",
     re.IGNORECASE,
 )
+RECRUITING_NOISE_RE = re.compile(
+    r"\b(talent\s*acquisition|recruiting\s*team|university\s*relations|"
+    r"campus\s*recruiting|careers?\s*team|people\s*team|hr\s*team|"
+    r"staffing\s*team|hiring\s*team)\b",
+    re.IGNORECASE,
+)
+PUNCTUATION_RE = re.compile(r"[^\w\s]")
+WHITESPACE_RE = re.compile(r"\s+")
 
 settings = Settings() # type: ignore
 
 def create_google_user(google_user: Mapping[str, Any], refresh_token: str, db: Session) -> User:
     """Adds a user from a Google account to the user table in database. Returns the user object."""
-    user_id = "".join(secrets.choice(characters) for _ in range(8))
+    user_id = common_utils.generate_id(8)
     user = User(
         id=user_id,
         firstname=google_user.get("given_name"),
@@ -69,7 +75,7 @@ def extract_body(payload: dict[str, Any]) -> tuple[str | None, str | None]:
     return plain_text, html
 
 
-def get_emails(credentials: Credentials, limit: int = 20, dump_json: bool = False) -> dict[str, dict[str, Any]]:
+def get_emails(credentials: Credentials, limit: int = 50, dump_json: bool = False) -> dict[str, dict[str, Any]]:
     """Returns the user's most recent emails."""
     service = discovery.build("gmail", "v1", credentials=credentials)
     result = service.users().messages().list(
@@ -109,6 +115,7 @@ def get_emails(credentials: Credentials, limit: int = 20, dump_json: bool = Fals
                 "subject": subject,
                 "sender": sender,
                 "recipient": recipient,
+                "thread_id": text["threadId"],
                 "received-at": received_at,
                 "text": body_text,
                 "html": body_html
@@ -132,12 +139,12 @@ def dump_emails_into_json(emails: dict[str, dict[str, Any]]):
 
 def write_email_records(emails: dict[str, dict[str, Any]], user: User, db: Session) -> int:
     """Writes fetched emails to email record table in database. Returns the number of records inserted."""
-
     records = []
     for id, email in emails.items():
         records.append({
             "provider": "gmail",
             "provider_message_id": id,
+            "provider_thread_id": email["thread_id"],
             "user_id": user.id,
             "sender": email["sender"],
             "recipient": user.email,
@@ -155,9 +162,9 @@ def write_email_records(emails: dict[str, dict[str, Any]], user: User, db: Sessi
     return result.rowcount #type: ignore
 
 
-def write_processed_email_record(classified: ClassifiedEmail | None, extracted: ExtractedEmail | None, email_id: int, user_id: str, date_applied: datetime | None, db: Session):
+def write_processed_email_record(classified: ClassifiedEmail | None, extracted: ExtractedEmail | None, email_id: int, user_id: str, date_applied: datetime, db: Session):
     """Writes a processed email record to database."""
-    process_id = "".join(secrets.choice(characters) for _ in range(36))
+    process_id = common_utils.generate_id(36)
     process_obj = EmailProcessing(
         id=process_id,
         email_id=email_id,
@@ -173,7 +180,6 @@ def write_processed_email_record(classified: ClassifiedEmail | None, extracted: 
         process_obj.is_relevant = False
         process_obj.classifier_confidence = 1.0
 
-    # If email was extracted, add additional info, then add application
     if extracted is not None:
         process_obj.extractor_confidence = extracted.confidence
         process_obj.extractor_evidence = extracted.evidence
@@ -181,22 +187,20 @@ def write_processed_email_record(classified: ClassifiedEmail | None, extracted: 
         process_obj.company_raw = extracted.company_raw
         process_obj.role_raw = extracted.role
 
-        company_id = get_company(extracted, db)
-        update_application(
-            extracted,
-            company_id,
-            user_id,
-            process_id,
-            date_applied, #type: ignore
-            db
-        )
-        
     db.add(process_obj)
+    db.flush()
 
+    # Add application if email was extracted
+    if extracted is not None:
+        company_id = get_company(extracted, db)
+        application_utils.update_application(process_obj, extracted, company_id, date_applied, db)
+        
 
 def get_company(extracted: ExtractedEmail, db: Session) -> str:
     """Gets the company ID from extracted email.
     If it doesn't exist, creates a new company record and returns its ID."""
+    # TODO: Add fuzzy matching across company/company alias rows
+
     company = db.query(CompanyAlias).filter(
         func.lower(CompanyAlias.alias) == func.lower(extracted.company_raw)
     ).first()
@@ -213,7 +217,7 @@ def get_company(extracted: ExtractedEmail, db: Session) -> str:
             company_id = company.company_id
         else:
             # Create new company record and alias record
-            company_id = "".join(secrets.choice(characters) for _ in range(8))
+            company_id = common_utils.generate_id(8)
             company = Company(
                 id=company_id,
                 name=normalised_company_name
@@ -229,43 +233,6 @@ def get_company(extracted: ExtractedEmail, db: Session) -> str:
     return company_id
 
 
-def update_application(extracted: ExtractedEmail, company_id: str, user_id: str, process_id: str, date_applied: datetime, db: Session):
-    """Creates an application if new, or updates an existing one."""
-    if extracted.status == ApplicationStage.APPLIED:
-        application = Application(
-            user_id=user_id,
-            company_id=company_id,
-            role=extracted.role,
-            stage=extracted.status,
-            date_applied=date_applied,
-            loc=extracted.location
-        )
-        db.add(application)
-        db.flush() # Populate application.id by executing INSERT
-    else:
-        application = db.query(Application).filter(
-            Application.company_id == company_id,
-            Application.user_id == user_id
-        ).first()
-        application.stage = extracted.status # type: ignore
-        
-
-    stage_event_id = "".join(secrets.choice(characters) for _ in range(12))
-    stage_event = StageEvent(
-        id=stage_event_id,
-        application_id=application.id, #type: ignore
-        stage=extracted.status,
-        processing_id=process_id,
-        dt=date_applied,
-        deadline=extracted.deadline,
-        deadline_type=extracted.deadline_type,
-        interview_date=extracted.interview_date,
-        interview_type=extracted.interview_type,
-        notes=extracted.notes
-    )
-    db.add(stage_event)
-
-
 def normalise_company_name(name: str) -> str:
     """Normalises a company name."""
     # Remove accents
@@ -274,7 +241,9 @@ def normalise_company_name(name: str) -> str:
         if not unicodedata.combining(c)
     )
 
-    # Remove legal suffixes
+    name = PUNCTUATION_RE.sub(" ", name)
     name = LEGAL_SUFFIX_RE.sub("", name)
+    name = RECRUITING_NOISE_RE.sub("", name)
+    name = WHITESPACE_RE.sub(" ", name)
 
     return name.strip()
