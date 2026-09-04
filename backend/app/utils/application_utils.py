@@ -1,7 +1,7 @@
 from app.models.ai_models import ExtractedEmail
 from app.models.database_models import Application, EmailProcessing, ManualReviewItem, StageEvent
-from app.models.enums import ApplicationStage
-from app.models.match_models import MatchOutcome, MatchResult, ScoredCandidate
+from app.models.enums import ApplicationStage, ManualReviewType
+from app.models.application_match_models import MatchOutcome, MatchResult, ScoredCandidate
 from app.utils import common_utils
 from datetime import datetime, timezone
 from sqlalchemy.orm import Session
@@ -14,6 +14,7 @@ SEASON_WORDS = {"summer", "fall", "autumn", "winter", "spring", "2025", "2026", 
 STAGE_ORDER = [
     ApplicationStage.APPLIED,
     ApplicationStage.OA,
+    ApplicationStage.INTERVIEW,
     ApplicationStage.OFFER,
     ApplicationStage.REJECTED,
     ApplicationStage.WITHDRAWN
@@ -236,9 +237,13 @@ def flag_for_manual_review(email: EmailProcessing, extracted: ExtractedEmail, co
     db.add(ManualReviewItem(
         email_id=email.id,
         reason=reason,
-        candidate_application_ids=[c.application.id for c in score_candidates(
-            get_candidate_applications(email.user_id, company_id, db), extracted
-        )]
+        review_type=ManualReviewType.APPLICATION_MATCH,
+        candidates={
+            c.application.id: c.total_score
+            for c in score_candidates(
+                get_candidate_applications(email.user_id, company_id, db), extracted
+            )
+        }
     ))
 
 

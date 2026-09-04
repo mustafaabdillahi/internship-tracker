@@ -11,6 +11,7 @@ class ApplicationStage(str, Enum):
 class ProcessingStatus(str, Enum):
     PENDING = "pending"
     PROCESSING = "processing"
+    NEEDS_REVIEW = "needs_review"
     COMPLETED = "completed"
     FAILED = "failed"
 
@@ -29,3 +30,7 @@ class InterviewType(str, Enum):
     ASSESSMENT = "assessment"
     ONSITE = "onsite"
     OTHER = "other"
+
+class ManualReviewType(str, Enum):
+    APPLICATION_MATCH = "application_match"
+    COMPANY_MATCH = "company_match"

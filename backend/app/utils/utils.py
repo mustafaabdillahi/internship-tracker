@@ -1,33 +1,17 @@
 from app.config import Settings
 from app.models.ai_models import ClassifiedEmail, ExtractedEmail
-from app.models.database_models import Company, CompanyAlias, EmailProcessing, EmailRecord, User
+from app.models.database_models import EmailProcessing, EmailRecord, User
 from app.models.enums import ProcessingStatus
-from app.utils import application_utils, common_utils
+from app.utils import application_utils, common_utils, company_utils
 from datetime import datetime, timezone
 from googleapiclient import discovery
 from google.oauth2.credentials import Credentials
 from pathlib import Path
-from sqlalchemy import func
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.orm import Session
 from typing import Any, Mapping
 import base64
 import json
-import re
-import unicodedata
-
-LEGAL_SUFFIX_RE = re.compile(
-    r"\b(llc|ltd|limited|inc|incorporated|corp|corporation|company|co|employment|plc|gmbh|ag|sa)\b",
-    re.IGNORECASE,
-)
-RECRUITING_NOISE_RE = re.compile(
-    r"\b(talent\s*acquisition|recruiting\s*team|university\s*relations|"
-    r"campus\s*recruiting|careers?\s*team|people\s*team|hr\s*team|"
-    r"staffing\s*team|hiring\s*team)\b",
-    re.IGNORECASE,
-)
-PUNCTUATION_RE = re.compile(r"[^\w\s]")
-WHITESPACE_RE = re.compile(r"\s+")
 
 settings = Settings() # type: ignore
 
@@ -192,58 +176,9 @@ def write_processed_email_record(classified: ClassifiedEmail | None, extracted: 
 
     # Add application if email was extracted
     if extracted is not None:
-        company_id = get_company(extracted, db)
-        application_utils.update_application(process_obj, extracted, company_id, date_applied, db)
-        
+        company_id = company_utils.get_company(extracted, process_obj, db)
 
-def get_company(extracted: ExtractedEmail, db: Session) -> str:
-    """Gets the company ID from extracted email.
-    If it doesn't exist, creates a new company record and returns its ID."""
-    # TODO: Add fuzzy matching across company/company alias rows
-
-    company = db.query(CompanyAlias).filter(
-        func.lower(CompanyAlias.alias) == func.lower(extracted.company_raw)
-    ).first()
-
-    if company is not None:
-        company_id = company.company_id
-    else:
-        normalised_company_name = normalise_company_name(extracted.company_raw)
-        company = db.query(CompanyAlias).filter(
-            func.lower(CompanyAlias.alias) == func.lower(normalised_company_name)
-        ).first()
-
-        if company is not None:
-            company_id = company.company_id
-        else:
-            # Create new company record and alias record
-            company_id = common_utils.generate_id(8)
-            company = Company(
-                id=company_id,
-                name=normalised_company_name
-            )
-            db.add(company)
-
-        alias = CompanyAlias(
-            company_id=company_id,
-            alias=normalised_company_name
-        )
-        db.add(alias)
-
-    return company_id
-
-
-def normalise_company_name(name: str) -> str:
-    """Normalises a company name."""
-    # Remove accents
-    name = "".join(
-        c for c in unicodedata.normalize("NFKD", name)
-        if not unicodedata.combining(c)
-    )
-
-    name = PUNCTUATION_RE.sub(" ", name)
-    name = LEGAL_SUFFIX_RE.sub("", name)
-    name = RECRUITING_NOISE_RE.sub("", name)
-    name = WHITESPACE_RE.sub(" ", name)
-
-    return name.strip()
+        # Only update/add application if company was found (no manual review needed)
+        if company_id:
+            application_utils.update_application(process_obj, extracted, company_id, date_applied, db)
+            

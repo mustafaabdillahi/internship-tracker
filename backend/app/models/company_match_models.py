@@ -1,4 +1,4 @@
-from app.models.database_models import Application
+from app.models.database_models import Company
 from dataclasses import dataclass
 from enum import Enum
 
@@ -11,15 +11,15 @@ class MatchOutcome(Enum):
 @dataclass
 class MatchResult:
     outcome: MatchOutcome
-    application: Application | None
+    company: Company | None
     candidates: list["ScoredCandidate"]
     reason: str
     should_create: bool = False
 
 @dataclass
 class ScoredCandidate:
-    application: Application
-    role_score: float | None
-    recency_score: float
-    stage_plausibility_score: float
+    company: Company
+    matched_alias: str
+    ratio_score: float
+    token_sort_score: float
     total_score: float

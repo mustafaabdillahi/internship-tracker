@@ -1,4 +1,4 @@
-from app.models.enums import ApplicationStage, DeadlineType, InterviewType, ProcessingStatus
+from app.models.enums import ApplicationStage, DeadlineType, InterviewType, ManualReviewType, ProcessingStatus
 from datetime import datetime, timezone
 from sqlalchemy import Boolean, CheckConstraint, DateTime, Enum as SQLAlchemyEnum, Float, ForeignKey, Integer, JSON, String, Text, UniqueConstraint
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
@@ -250,12 +250,20 @@ class CompanyAlias(Base):
 class ManualReviewItem(Base):
     __tablename__ = "manual_review_item"
 
-    id = mapped_column(Integer, primary_key=True, autoincrement=True)
-    email_id = mapped_column(String(36), ForeignKey("email_processing.id"))
-    reason = mapped_column(Text)
-    candidate_application_ids = mapped_column(JSON)  # For a review UI to show options
-    resolved = mapped_column(Boolean, default=False)
-    created_at = mapped_column(DateTime, default=datetime.now(timezone.utc))
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    email_id: Mapped[str] = mapped_column(String(36), ForeignKey("email_processing.id"))
+    review_type: Mapped[ManualReviewType] = mapped_column(
+        SQLAlchemyEnum(ManualReviewType, name="manualreviewtype", native_enum=True),
+        nullable=False
+    )
+
+    reason: Mapped[str] = mapped_column(Text, nullable=False)
+    candidates: Mapped[dict[str, float] | None] = mapped_column(JSON)  # Gives the score for each ID. Used by review UI to show options
+    resolved: Mapped[bool] = mapped_column(Boolean, default=False)
+    resolution: Mapped[str | None] = mapped_column(String(100))
+    selected_id: Mapped[str | None] = mapped_column(String(50))
+    resolved_at: Mapped[datetime | None] = mapped_column(DateTime)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now(timezone.utc))
 
     email: Mapped["EmailProcessing"] = relationship(
         back_populates="manual_review_items"
