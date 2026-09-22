@@ -7,10 +7,10 @@ if not settings.production:
 
 from app.ai import classifier, email_pruner, extractor
 from app.database import SessionLocal
-from app.models.database_models import Application, EmailProcessing, EmailRecord, User
-from app.schemas.application import ApplicationRead
+from app.models.database_models import Application, EmailProcessing, EmailRecord, StageEvent, User
+from app.schemas.application import ApplicationRead, ApplicationUpdate
 from app.schemas.user import UserRead
-from app.utils import utils
+from app.utils import common_utils, utils
 from datetime import datetime, timedelta, timezone
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -298,6 +298,51 @@ def fetch_application(request: Request, application_id: int):
 
         if application is None:
             raise HTTPException(status_code=404, detail="Application not found.")
+
+        return application
+
+
+@app.patch("/applications/{application_id}", response_model=ApplicationRead)
+def update_application(request: Request, application_id: int, update: ApplicationUpdate):
+    session = request.cookies.get("session")
+    if not session:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+
+    try:
+        payload = jwt.decode(
+            session,
+            settings.jwt_secret,
+            algorithms=["HS256"]
+        )
+    except JWTError:
+        raise HTTPException(status_code=401, detail="Invalid or expired token")
+
+    with SessionLocal() as db:
+        application = db.query(Application).filter(
+            Application.id == application_id,
+            Application.user_id == payload["sub"]
+        ).first()
+
+        if application is None:
+            raise HTTPException(status_code=404, detail="Application not found")
+        
+        old_stage = application.stage
+        update_data = update.model_dump(exclude_unset=True)
+        for field, value in update_data.items():
+            setattr(application, field, value)
+
+        if update.stage is not None and update.stage != old_stage:
+            stage_event = StageEvent(
+                id=common_utils.generate_id(6),
+                application_id=application.id,
+                stage=update.stage,
+                role=application.role,
+                dt=datetime.now(timezone.utc)
+            )
+            db.add(stage_event)
+
+        db.commit()
+        db.refresh(application)
 
         return application
 

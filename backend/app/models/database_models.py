@@ -80,7 +80,7 @@ class StageEvent(Base):
     application_id: Mapped[int] = mapped_column(Integer, ForeignKey("application.id"), nullable=False)
     stage: Mapped[ApplicationStage] = mapped_column(SQLAlchemyEnum(ApplicationStage), nullable=False)
     role: Mapped[str | None] = mapped_column(String(50))
-    processing_id: Mapped[str] = mapped_column(String(36), ForeignKey("email_processing.id"), nullable=False, unique=True)
+    processing_id: Mapped[str | None] = mapped_column(String(36), ForeignKey("email_processing.id"), nullable=True, unique=True)
     dt: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     deadline: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     deadline_type: Mapped[DeadlineType | None] = mapped_column(SQLAlchemyEnum(DeadlineType))

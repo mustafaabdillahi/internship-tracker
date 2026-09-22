@@ -61,7 +61,7 @@ BOILERPLATE_MARKERS = [
     "manage your preferences",
     "privacy policy",
     "terms and conditions",
-    "view this email in your browser",
+    "view this email in your browser"
 ]
 
 

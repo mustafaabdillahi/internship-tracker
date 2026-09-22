@@ -1,4 +1,4 @@
-from app.models.database_models import Application, Company
+from app.models.database_models import Application
 from dataclasses import dataclass
 from enum import Enum
 
