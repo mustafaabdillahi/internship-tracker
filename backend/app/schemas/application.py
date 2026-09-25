@@ -20,7 +20,7 @@ class ApplicationUpdate(BaseModel):
 
 class ApplicationRead(BaseModel):
     id: int
-    company_id: str | None = None
+    company_name: str | None = None
     role: str | None = None
     stage: ApplicationStage | None = None
     date_applied: datetime

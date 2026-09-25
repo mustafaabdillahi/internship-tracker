@@ -10,7 +10,7 @@ from app.database import SessionLocal
 from app.models.database_models import Application, EmailProcessing, EmailRecord, StageEvent, User
 from app.schemas.application import ApplicationRead, ApplicationUpdate
 from app.schemas.user import UserRead
-from app.utils import common_utils, utils
+from app.utils import application_utils, common_utils, utils
 from datetime import datetime, timedelta, timezone
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -271,7 +271,10 @@ def fetch_applications(request: Request):
 
         applications = db.query(Application).filter(Application.user_id == payload["sub"]).all()
 
-        return applications
+        return [
+            application_utils.get_application_read(app, db)
+            for app in applications
+        ]
 
 
 @app.get("/applications/{application_id}", response_model=ApplicationRead)
@@ -299,7 +302,7 @@ def fetch_application(request: Request, application_id: int):
         if application is None:
             raise HTTPException(status_code=404, detail="Application not found.")
 
-        return application
+        return application_utils.get_application_read(application, db)
 
 
 @app.patch("/applications/{application_id}", response_model=ApplicationRead)
@@ -344,7 +347,7 @@ def update_application(request: Request, application_id: int, update: Applicatio
         db.commit()
         db.refresh(application)
 
-        return application
+        return application_utils.get_application_read(application, db)
 
 
 @app.get("/emails/process/{email_id}")

@@ -8,7 +8,7 @@ export type ApplicationStage =
 
 export interface Application {
   id: number;
-  company_id: string | null;
+  company_name: string | null;
   role: string | null;
   stage: ApplicationStage | null;
   date_applied: string;

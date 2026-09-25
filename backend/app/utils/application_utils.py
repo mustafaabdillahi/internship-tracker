@@ -1,7 +1,8 @@
 from app.models.ai_models import ExtractedEmail
-from app.models.database_models import Application, EmailProcessing, ManualReviewItem, StageEvent
+from app.models.database_models import Application, Company, EmailProcessing, ManualReviewItem, StageEvent
 from app.models.enums import ApplicationStage, ManualReviewType
 from app.models.application_match_models import MatchOutcome, MatchResult, ScoredCandidate
+from app.schemas.application import ApplicationRead
 from app.utils import common_utils
 from datetime import datetime, timezone
 from sqlalchemy.orm import Session
@@ -245,6 +246,26 @@ def flag_for_manual_review(email: EmailProcessing, extracted: ExtractedEmail, co
             )
         }
     ))
+
+
+def get_application_read(application: Application, db: Session) -> ApplicationRead:
+    """Gets the ApplicationRead object for an application."""
+    company = db.query(Company).filter(
+        Company.id == application.company_id
+    ).first()
+
+    read = ApplicationRead(
+        id=application.id,
+        company_name=company.name if company else None,
+        role=application.role,
+        stage=application.stage,
+        date_applied=application.date_applied,
+        loc=application.loc,
+        employment_type=application.employment_type,
+        notes=application.notes
+    )
+
+    return read
 
 
 def llm_disambiguate(email: EmailProcessing, extracted: ExtractedEmail, candidates: list[ScoredCandidate]):

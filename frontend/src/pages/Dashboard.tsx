@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { getApplications } from "../api/applications";
 import SyncGmailButton from "../components/SyncGmailButton";
 import LogoutButton from "../components/LogoutButton";
+import KanbanBoard from "../components/KanbanBoard";
 
 function Dashboard() {
   const {
@@ -32,6 +33,7 @@ function Dashboard() {
     <div>
         <h1>Dashboard</h1>
         <p>This is the dashboard page.</p>
+        <KanbanBoard />
         <pre>{JSON.stringify(data, null, 2)}</pre>
         <SyncGmailButton />
         <LogoutButton />

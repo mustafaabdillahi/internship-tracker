@@ -29,6 +29,7 @@
     padding: 10px 12px;
     text-decoration: none;
     color: #333;
+    background-color: #626262;
     border-radius: 6px;
 }
 
@@ -44,4 +45,77 @@
 .content {
     flex: 1;
     padding: 32px;
+}
+
+.kanban-board {
+    display: grid;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap: 12px;
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+    overflow-x: auto;
+    padding: 20px 8px 24px;
+}
+
+.kanban-column {
+    min-width: 0;
+    min-height: 400px;
+    padding: 12px;
+    background: #f3f3f3;
+    border-radius: 10px;
+    box-sizing: border-box;
+}
+
+.kanban-column-over {
+    outline: 2px solid #555;
+}
+
+.kanban-column h2 {
+    font-size: 14px;
+    margin-top: 0;
+    margin-bottom: 12px;
+    overflow-wrap: anywhere;
+}
+
+.kanban-column-cards {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    min-width: 0;
+}
+
+.application-card {
+    width: 100%;
+    min-width: 0;
+    padding: 12px;
+    background: white;
+    border-radius: 8px;
+    cursor: grab;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12);
+    box-sizing: border-box;
+    overflow-wrap: anywhere;
+}
+
+.application-card:active {
+    cursor: grabbing;
+}
+
+.application-card p {
+    margin: 6px 0 0;
+    font-size: 14px;
+}
+
+/* Medium screens */
+@media (max-width: 1200px) {
+    .kanban-board {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+}
+
+/* Small screens */
+@media (max-width: 700px) {
+    .kanban-board {
+        grid-template-columns: 1fr;
+    }
 }
