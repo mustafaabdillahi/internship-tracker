@@ -1,4 +1,4 @@
-import type { Application, ApplicationStage } from "../types/application";
+import type { Application, ApplicationFormData, ApplicationStage } from "../types/application";
 import apiClient from "./client";
 
 export async function getApplications(): Promise<Application[]> {
@@ -16,5 +16,24 @@ export async function updateApplicationStage(id: number, stage: ApplicationStage
         `/applications/${id}`,
         { stage }
     );
+    return response.data;
+}
+
+export async function createApplication(data: ApplicationFormData): Promise<Application> {
+    console.log(data);
+    const response = await apiClient.post<Application>(
+        `/application/create`,
+        data
+    );
+
+    return response.data;
+}
+
+export async function updateApplication(id: number, data: Partial<ApplicationFormData>): Promise<Application> {
+    const response = await apiClient.patch<Application>(
+        `/application/update`,
+        { id, data }
+    );
+
     return response.data;
 }

@@ -1,17 +1,20 @@
 import { useDraggable } from "@dnd-kit/core";
 import type { Application } from "../types/application";
+import { Pencil } from "lucide-react";
 
 interface ApplicationCardProps {
   application: Application;
   isOverlay?: boolean;
   isDragging?: boolean;
+  onEdit: (application: Application) => void;
 }
 
 function ApplicationCard(
   {
       application,
       isOverlay = false,
-      isDragging = false
+      isDragging = false,
+      onEdit
   }: ApplicationCardProps
 ) {
   const {
@@ -44,6 +47,18 @@ function ApplicationCard(
         isOverlay ? "application-card-overlay": ""
       }`}
     >
+
+      <button
+        type="button"
+        className="edit-button"
+        onClick={(event) => {
+          event.stopPropagation();
+          onEdit(application);
+        }}
+      >
+        <Pencil size={16} />
+      </button>
+
       <strong>
         {application.company_name ?? "Unknown company"}
         

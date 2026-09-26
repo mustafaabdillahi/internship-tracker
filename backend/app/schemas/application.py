@@ -2,6 +2,14 @@ from app.models.enums import ApplicationStage
 from datetime import datetime
 from pydantic import BaseModel, ConfigDict
 
+class ApplicationCreateFrontend(BaseModel):
+    company_name: str
+    stage: ApplicationStage
+    role: str | None = None
+    loc: str | None = None
+    employment_type: str | None = None
+    notes: str | None = None
+
 class ApplicationCreate(BaseModel):
     userid: str
     company_id: str | None = None

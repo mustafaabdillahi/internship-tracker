@@ -3,6 +3,9 @@ import { getApplications } from "../api/applications";
 import SyncGmailButton from "../components/SyncGmailButton";
 import LogoutButton from "../components/LogoutButton";
 import KanbanBoard from "../components/KanbanBoard";
+import { useState } from "react";
+import type { Application } from "../types/application";
+import ApplicationModal from "../components/ApplicationModal";
 
 function Dashboard() {
   const {
@@ -14,6 +17,9 @@ function Dashboard() {
     queryKey: ["applications"],
     queryFn: getApplications
   });
+
+  const [isApplicationModalOpen, setIsApplicationModalOpen] = useState(false);
+  const [selectedApplication, setSelectedApplication] = useState<Application | null>(null);
 
   if(isPending) {
     return <p>Loading applications...</p>;
@@ -30,14 +36,38 @@ function Dashboard() {
   }
 
   return (
-    <div>
-        <h1>Dashboard</h1>
-        <p>This is the dashboard page.</p>
-        <KanbanBoard />
-        <pre>{JSON.stringify(data, null, 2)}</pre>
-        <SyncGmailButton />
-        <LogoutButton />
-    </div>
+    <>
+      <div>
+          <h1>Dashboard</h1>
+          <p>This is the dashboard page.</p>
+          <button
+            onClick={() => {
+              setSelectedApplication(null);
+              setIsApplicationModalOpen(true);
+            }}>
+            + New Application
+          </button>
+          <KanbanBoard
+            onEditApplication={(application) => {
+              setSelectedApplication(application);
+              setIsApplicationModalOpen(true);
+            }}
+          />
+          <SyncGmailButton />
+          <LogoutButton />
+      </div>
+
+      <div>
+        <ApplicationModal
+          isOpen={isApplicationModalOpen}
+          application={selectedApplication ?? undefined}
+          onClose={() => {
+            setIsApplicationModalOpen(false);
+            setSelectedApplication(null);
+          }}
+        />
+      </div>
+    </>
   )
 }
 

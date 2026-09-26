@@ -7,8 +7,8 @@ if not settings.production:
 
 from app.ai import classifier, email_pruner, extractor
 from app.database import SessionLocal
-from app.models.database_models import Application, EmailProcessing, EmailRecord, StageEvent, User
-from app.schemas.application import ApplicationRead, ApplicationUpdate
+from app.models.database_models import Application, Company, CompanyAlias, EmailProcessing, EmailRecord, StageEvent, User
+from app.schemas.application import ApplicationCreateFrontend, ApplicationRead, ApplicationUpdate
 from app.schemas.user import UserRead
 from app.utils import application_utils, common_utils, utils
 from datetime import datetime, timedelta, timezone
@@ -22,6 +22,7 @@ from google_auth_oauthlib.flow import Flow
 from jose import jwt, JWTError
 import secrets
 import sqlalchemy
+import sqlalchemy.exc
 
 
 app = FastAPI()
@@ -346,6 +347,69 @@ def update_application(request: Request, application_id: int, update: Applicatio
 
         db.commit()
         db.refresh(application)
+
+        return application_utils.get_application_read(application, db)
+
+
+@app.post("/application/create")
+def create_application(request: Request, data: ApplicationCreateFrontend) -> ApplicationRead:
+    """Manually creates application."""
+
+    print(request, data)
+    
+    session = request.cookies.get("session")
+    if not session:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+
+    try:
+        payload = jwt.decode(
+            session,
+            settings.jwt_secret,
+            algorithms=["HS256"]
+        )
+    except JWTError:
+        raise HTTPException(status_code=401, detail="Invalid or expired token")
+
+    with SessionLocal() as db:
+        alias = db.query(CompanyAlias).filter(
+            sqlalchemy.func.lower(CompanyAlias.alias) == sqlalchemy.func.lower(data.company_name)
+        ).first()
+
+        if alias is not None:
+            company = db.query(Company).filter(
+                Company.id == alias.company_id
+            ).first()
+
+            if company is None:
+                raise sqlalchemy.exc.NoResultFound(f"Company alias {alias.alias} is orphaned")
+
+        else:
+            company = Company(
+                id=common_utils.generate_id(8),
+                name=data.company_name
+            )
+            db.add(company)
+            db.flush()
+
+            new_alias = CompanyAlias(
+                company_id=company.id,
+                alias=data.company_name
+            )
+            db.add(new_alias)
+            
+        application = Application(
+            user_id=payload["sub"],
+            company_id=company.id,
+            role=data.role,
+            stage=data.stage,
+            date_applied=datetime.now(timezone.utc),
+            loc=data.loc,
+            employment_type=data.employment_type,
+            notes=data.notes
+        )
+
+        db.add(application)
+        db.commit()
 
         return application_utils.get_application_read(application, db)
 

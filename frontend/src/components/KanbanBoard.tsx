@@ -15,6 +15,10 @@ const columns: {
     title: "Applied"
   },
   {
+    id: "oa",
+    title: "Online Assessment"
+  },
+  {
     id: "interview",
     title: "Interview"
   },
@@ -32,9 +36,13 @@ const columns: {
   }
 ];
 
+interface KanbanBoardProps {
+  onEditApplication: (application: Application) => void;
+}
 
 
-function KanbanBoard() {
+
+function KanbanBoard({ onEditApplication }: KanbanBoardProps) {
   const queryClient = useQueryClient();
 
   const {
@@ -176,6 +184,7 @@ function KanbanBoard() {
           <ApplicationCard
             application={activeApplication}
             isOverlay
+            onEdit={onEditApplication}
           />
         ): null}
       </DragOverlay>
