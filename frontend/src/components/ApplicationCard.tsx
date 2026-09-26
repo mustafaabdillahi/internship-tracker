@@ -3,10 +3,16 @@ import type { Application } from "../types/application";
 
 interface ApplicationCardProps {
   application: Application;
+  isOverlay?: boolean;
+  isDragging?: boolean;
 }
 
 function ApplicationCard(
-  { application }: ApplicationCardProps
+  {
+      application,
+      isOverlay = false,
+      isDragging = false
+  }: ApplicationCardProps
 ) {
   const {
     attributes,
@@ -14,10 +20,11 @@ function ApplicationCard(
     setNodeRef,
     transform
   } = useDraggable({
-    id: application.id
+    id: application.id,
+    disabled: isOverlay
   });
 
-  const style = transform
+  const style = !isOverlay && transform
     ? {
       transform:
         `translate3d(${transform.x}px), ${transform.y}px, 0`
@@ -26,11 +33,15 @@ function ApplicationCard(
 
   return (
     <div
-      ref={setNodeRef}
-      style={style}
-      {...listeners}
-      {...attributes}
-      className="application-card"
+      ref={isOverlay ? undefined : setNodeRef}
+      style={{
+        opacity: isDragging ? 0 : 1
+      }}
+      {...(!isOverlay ? listeners: {})}
+      {...(!isOverlay ? attributes: {})}
+      className={`application-card ${
+        isOverlay ? "application-card-overlay": ""
+      }`}
     >
       <strong>
         {application.company_name ?? "Unknown company"}

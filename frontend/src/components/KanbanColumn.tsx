@@ -5,12 +5,17 @@ import ApplicationCard from "./ApplicationCard";
 interface KanbanColumnProps {
   id: ApplicationStage;
   title: string;
-  applications: Application[];
+  applications: Application[],
+  activeApplicationId: number | null;
 }
 
 function KanbanColumn(
-  {id, title, applications}: KanbanColumnProps
-) {
+  {
+    id,
+    title,
+    applications,
+    activeApplicationId
+}: KanbanColumnProps) {
   const {
     setNodeRef,
     isOver
@@ -25,8 +30,11 @@ function KanbanColumn(
         isOver ? "kanban-column-over": ""
       }`}
     >
-      <h2>
-        {title} ({applications.length})
+      <h2 className="kanban-column-title">
+        {title}
+        <span className="kanban-column-count">
+          ({applications.length})
+        </span>
       </h2>
 
       <div className="kanban-column-cards">
@@ -34,6 +42,7 @@ function KanbanColumn(
           <ApplicationCard
             key={application.id}
             application={application}
+            isDragging={application.id === activeApplicationId}
           />
         ))}
       </div>
