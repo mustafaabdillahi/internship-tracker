@@ -35,6 +35,7 @@ function ApplicationCard(
     <div
       ref={isOverlay ? undefined : setNodeRef}
       style={{
+        ...style,
         opacity: isDragging ? 0 : 1
       }}
       {...(!isOverlay ? listeners: {})}
