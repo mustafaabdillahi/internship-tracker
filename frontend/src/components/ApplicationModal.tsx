@@ -16,9 +16,6 @@ function ApplicationModal(
     application=undefined
   }: ApplicationModalProps
 ) {
-  if(!isOpen) {
-      return null;
-  }
 
   const isEditing = application !== undefined;
 
@@ -40,6 +37,10 @@ function ApplicationModal(
     };
   }, [isOpen, onClose]);
 
+  if(!isOpen) {
+      return null;
+  }
+
   return (
     <div
       className="modal-backdrop"
@@ -53,7 +54,7 @@ function ApplicationModal(
         <div className="modal-header">
           <h2>
             {isEditing
-                ? "Update application"
+                ? "Edit application"
                 : "New application"}
           </h2>
 

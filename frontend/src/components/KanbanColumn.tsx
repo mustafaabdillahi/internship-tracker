@@ -7,6 +7,7 @@ interface KanbanColumnProps {
   title: string;
   applications: Application[],
   activeApplicationId: number | null;
+  onEdit: (application: Application) => void;
 }
 
 function KanbanColumn(
@@ -14,7 +15,8 @@ function KanbanColumn(
     id,
     title,
     applications,
-    activeApplicationId
+    activeApplicationId,
+    onEdit
 }: KanbanColumnProps) {
   const {
     setNodeRef,
@@ -43,6 +45,7 @@ function KanbanColumn(
             key={application.id}
             application={application}
             isDragging={application.id === activeApplicationId}
+            onEdit={onEdit}
           />
         ))}
       </div>

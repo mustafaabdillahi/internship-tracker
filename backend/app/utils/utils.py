@@ -176,9 +176,10 @@ def write_processed_email_record(classified: ClassifiedEmail | None, extracted: 
 
     # Add application if email was extracted
     if extracted is not None:
-        company_id = company_utils.get_company(extracted, process_obj, db)
+        res = company_utils.get_company(extracted, process_obj, db)
 
         # Only update/add application if company was found (no manual review needed)
-        if company_id:
-            application_utils.update_application(process_obj, extracted, company_id, date_applied, db)
+        if res:
+            company_id, company_name = res
+            application_utils.update_application(process_obj, extracted, company_id, company_name, date_applied, db)
             

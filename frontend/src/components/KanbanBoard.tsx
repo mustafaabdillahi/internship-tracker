@@ -1,7 +1,7 @@
 import { DndContext, DragOverlay, type DragEndEvent, type DragStartEvent } from "@dnd-kit/core";
 import type { Application, ApplicationStage } from "../types/application";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { getApplications, updateApplicationStage } from "../api/applications";
+import { getApplications, updateApplication } from "../api/applications";
 import KanbanColumn from "./KanbanColumn";
 import { useState } from "react";
 import ApplicationCard from "./ApplicationCard";
@@ -61,7 +61,7 @@ function KanbanBoard({ onEditApplication }: KanbanBoardProps) {
     }: {
       id: number,
       stage: ApplicationStage;
-    }) => updateApplicationStage(id, stage),
+    }) => updateApplication(id, {stage: stage}),
 
     onMutate: async({ id, stage }) => {
       await queryClient.cancelQueries({
@@ -174,6 +174,7 @@ function KanbanBoard({ onEditApplication }: KanbanBoardProps) {
               title={column.title}
               applications={columnApplications}
               activeApplicationId={activeApplicationId}
+              onEdit={onEditApplication}
             />
           );
 

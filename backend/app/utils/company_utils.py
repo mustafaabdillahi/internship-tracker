@@ -29,8 +29,8 @@ FUZZY_REVIEW_THRESHOLD = 82
 FUZZY_AMBIGUITY_GAP = 7
 MIN_FUZZY_AUTO_LENGTH = 5
 
-def get_company(extracted: ExtractedEmail, email: EmailProcessing, db: Session) -> str | None:
-    """Gets the company ID from extracted email.
+def get_company(extracted: ExtractedEmail, email: EmailProcessing, db: Session) -> tuple[str, str] | None:
+    """Gets the company ID and normalised name from extracted email.
     If it doesn't exist, creates a new company record and returns its ID, if possible."""
     result = find_matching_company(extracted.company_raw, db)
     normalised = normalise_company_name(extracted.company_raw)
@@ -40,7 +40,7 @@ def get_company(extracted: ExtractedEmail, email: EmailProcessing, db: Session) 
         assert result.company is not None
 
         write_alias(result.company.id, normalised, db)
-        return result.company.id
+        return result.company.id, normalised
 
     
     # Otherwise, create company record and alias if recommended
@@ -55,7 +55,7 @@ def get_company(extracted: ExtractedEmail, email: EmailProcessing, db: Session) 
 
         write_alias(company_id, normalised, db)
 
-        return company_id 
+        return company_id, normalised
 
     # Otherwise, flag company for manual review
     flag_for_manual_review(result, email, db)

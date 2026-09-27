@@ -1,5 +1,3 @@
-import { useQuery } from "@tanstack/react-query";
-import { getApplications } from "../api/applications";
 import SyncGmailButton from "../components/SyncGmailButton";
 import LogoutButton from "../components/LogoutButton";
 import KanbanBoard from "../components/KanbanBoard";
@@ -8,32 +6,9 @@ import type { Application } from "../types/application";
 import ApplicationModal from "../components/ApplicationModal";
 
 function Dashboard() {
-  const {
-    data,
-    isPending,
-    isError,
-    error
-  } = useQuery({
-    queryKey: ["applications"],
-    queryFn: getApplications
-  });
 
   const [isApplicationModalOpen, setIsApplicationModalOpen] = useState(false);
   const [selectedApplication, setSelectedApplication] = useState<Application | null>(null);
-
-  if(isPending) {
-    return <p>Loading applications...</p>;
-  }
-
-  if(isError) {
-    return (
-      <div>
-        <h1>Dashboard</h1>
-        <p>Failed to load applications: {error.name} | {error.message}
-        </p>
-      </div>
-    );
-  }
 
   return (
     <>

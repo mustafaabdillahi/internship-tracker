@@ -20,8 +20,9 @@ class ApplicationCreate(BaseModel):
     notes: str | None = None
 
 class ApplicationUpdate(BaseModel):
-    company_id: str | None = None
+    company_name: str | None = None
     stage: ApplicationStage | None = None
+    role: str | None = None
     loc: str | None = None
     employment_type: str | None = None
     notes: str | None = None

@@ -20,6 +20,7 @@ from google.oauth2 import id_token
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import Flow
 from jose import jwt, JWTError
+from sqlalchemy.dialects import postgresql
 import secrets
 import sqlalchemy
 import sqlalchemy.exc
@@ -272,10 +273,7 @@ def fetch_applications(request: Request):
 
         applications = db.query(Application).filter(Application.user_id == payload["sub"]).all()
 
-        return [
-            application_utils.get_application_read(app, db)
-            for app in applications
-        ]
+        return applications
 
 
 @app.get("/applications/{application_id}", response_model=ApplicationRead)
@@ -303,10 +301,10 @@ def fetch_application(request: Request, application_id: int):
         if application is None:
             raise HTTPException(status_code=404, detail="Application not found.")
 
-        return application_utils.get_application_read(application, db)
+        return application
 
 
-@app.patch("/applications/{application_id}", response_model=ApplicationRead)
+@app.patch("/application/update/{application_id}", response_model=ApplicationRead)
 def update_application(request: Request, application_id: int, update: ApplicationUpdate):
     session = request.cookies.get("session")
     if not session:
@@ -329,7 +327,7 @@ def update_application(request: Request, application_id: int, update: Applicatio
 
         if application is None:
             raise HTTPException(status_code=404, detail="Application not found")
-        
+
         old_stage = application.stage
         update_data = update.model_dump(exclude_unset=True)
         for field, value in update_data.items():
@@ -345,17 +343,25 @@ def update_application(request: Request, application_id: int, update: Applicatio
             )
             db.add(stage_event)
 
+        if update.company_name is not None:
+            query = postgresql.insert(CompanyAlias).values(
+                company_id=application.company_id,
+                alias=update.company_name
+            ).on_conflict_do_nothing(
+                constraint="uq_company_alias"
+            )
+            db.execute(query)
+        
+
         db.commit()
         db.refresh(application)
 
-        return application_utils.get_application_read(application, db)
+        return application
 
 
 @app.post("/application/create")
 def create_application(request: Request, data: ApplicationCreateFrontend) -> ApplicationRead:
     """Manually creates application."""
-
-    print(request, data)
     
     session = request.cookies.get("session")
     if not session:
@@ -400,6 +406,7 @@ def create_application(request: Request, data: ApplicationCreateFrontend) -> App
         application = Application(
             user_id=payload["sub"],
             company_id=company.id,
+            company_name=data.company_name,
             role=data.role,
             stage=data.stage,
             date_applied=datetime.now(timezone.utc),
@@ -410,8 +417,9 @@ def create_application(request: Request, data: ApplicationCreateFrontend) -> App
 
         db.add(application)
         db.commit()
+        db.refresh(application)
 
-        return application_utils.get_application_read(application, db)
+        return application # type: ignore
 
 
 @app.get("/emails/process/{email_id}")

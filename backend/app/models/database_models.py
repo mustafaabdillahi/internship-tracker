@@ -46,6 +46,7 @@ class Application(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     user_id: Mapped[str] = mapped_column(String(8), ForeignKey("user.id"), nullable=False)
     company_id: Mapped[str] = mapped_column(String(8), ForeignKey("company.id"), nullable=False)
+    company_name: Mapped[str | None] = mapped_column(String(100))
     role: Mapped[str | None] = mapped_column(String(50))
     stage: Mapped[ApplicationStage] = mapped_column(SQLAlchemyEnum(ApplicationStage), nullable=False)
     date_applied: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
@@ -244,6 +245,10 @@ class CompanyAlias(Base):
 
     company: Mapped["Company"] = relationship(
         back_populates="aliases"
+    )
+
+    __table_args__ = (
+        UniqueConstraint("company_id", "alias", name="uq_company_alias"),
     )
 
 

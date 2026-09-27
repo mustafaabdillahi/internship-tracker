@@ -25,13 +25,13 @@ BASE_WEIGHTS = {"role": 0.60, "recency": 0.15, "stage": 0.25}
 CONFIDENT_THRESHOLD = 0.55
 AMBIGUITY_GAP = 0.12
 
-def update_application(email: EmailProcessing, extracted: ExtractedEmail, company_id: str, date_applied: datetime, db: Session) -> Application | None:
+def update_application(email: EmailProcessing, extracted: ExtractedEmail, company_id: str, company_name: str, date_applied: datetime, db: Session) -> Application | None:
     """Creates an application if new, or updates an existing one."""
     match_result = find_matching_application(email, extracted, company_id, db)
 
     if match_result.application is None:
         if match_result.should_create:
-            application = write_application(email, extracted, company_id, date_applied, db)
+            application = write_application(email, extracted, company_id, company_name, date_applied, db)
         else:
             flag_for_manual_review(email, extracted, company_id, match_result.reason, db)
             return None
@@ -73,11 +73,12 @@ def write_stage_event(application: Application, email: EmailProcessing, extracte
     db.add(stage_event)
 
 
-def write_application(email: EmailProcessing, extracted: ExtractedEmail, company_id: str, date_applied: datetime, db: Session) -> Application:
+def write_application(email: EmailProcessing, extracted: ExtractedEmail, company_id: str, company_name: str, date_applied: datetime, db: Session) -> Application:
     """Writes new application to database."""
     application = Application(
         user_id=email.user_id,
         company_id=company_id,
+        company_name=company_name,
         role=extracted.role,
         stage=extracted.status,
         date_applied=date_applied,
@@ -246,26 +247,6 @@ def flag_for_manual_review(email: EmailProcessing, extracted: ExtractedEmail, co
             )
         }
     ))
-
-
-def get_application_read(application: Application, db: Session) -> ApplicationRead:
-    """Gets the ApplicationRead object for an application."""
-    company = db.query(Company).filter(
-        Company.id == application.company_id
-    ).first()
-
-    read = ApplicationRead(
-        id=application.id,
-        company_name=company.name if company else None,
-        role=application.role,
-        stage=application.stage,
-        date_applied=application.date_applied,
-        loc=application.loc,
-        employment_type=application.employment_type,
-        notes=application.notes
-    )
-
-    return read
 
 
 def llm_disambiguate(email: EmailProcessing, extracted: ExtractedEmail, candidates: list[ScoredCandidate]):

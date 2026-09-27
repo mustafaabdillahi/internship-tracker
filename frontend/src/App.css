@@ -139,6 +139,12 @@
     transition: opacity 0.15s ease;
 }
 
+.edit-button:hover {
+    color: black;
+    cursor: pointer;
+    transition: all 0.1s;
+}
+
 .application-card:focus-within .edit-button,
 .application-card:hover .edit-button {
     opacity: 1;

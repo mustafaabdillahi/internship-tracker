@@ -11,16 +11,7 @@ export async function getApplication(id: string) {
     return response.data;
 }
 
-export async function updateApplicationStage(id: number, stage: ApplicationStage): Promise<Application> {
-    const response = await apiClient.patch<Application>(
-        `/applications/${id}`,
-        { stage }
-    );
-    return response.data;
-}
-
 export async function createApplication(data: ApplicationFormData): Promise<Application> {
-    console.log(data);
     const response = await apiClient.post<Application>(
         `/application/create`,
         data
@@ -31,8 +22,8 @@ export async function createApplication(data: ApplicationFormData): Promise<Appl
 
 export async function updateApplication(id: number, data: Partial<ApplicationFormData>): Promise<Application> {
     const response = await apiClient.patch<Application>(
-        `/application/update`,
-        { id, data }
+        `/application/update/${id}`,
+        data
     );
 
     return response.data;
