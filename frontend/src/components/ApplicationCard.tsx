@@ -54,8 +54,7 @@ function ApplicationCard(
         onPointerDown={(event) => {
           event.stopPropagation();
         }}
-        onClick={(event) => {
-          console.log("Clicked!");
+        onClick={() => {
           onEdit(application);
         }}
         aria-label={`Edit ${application.company_name ?? "Unknown Company"} ${application.role ?? ""} application`}

@@ -1,4 +1,4 @@
-import type { Application, ApplicationFormData, ApplicationStage } from "../types/application";
+import type { Application, ApplicationFormData } from "../types/application";
 import apiClient from "./client";
 
 export async function getApplications(): Promise<Application[]> {
