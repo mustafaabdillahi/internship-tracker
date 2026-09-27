@@ -255,7 +255,7 @@ def record_user_emails(request: Request):
 
 
 @app.get("/applications", response_model=list[ApplicationRead])
-def fetch_applications(request: Request):
+def fetch_applications(request: Request, company: str | None = None, location: str | None = None, role: str | None = None):
     session = request.cookies.get("session")
     if not session:
         raise HTTPException(status_code=401, detail="Not authenticated")
@@ -271,9 +271,22 @@ def fetch_applications(request: Request):
         if user is None:
             raise HTTPException(status_code=404, detail="User not found.")
 
-        applications = db.query(Application).filter(Application.user_id == payload["sub"]).all()
+        query = db.query(Application).filter(Application.user_id == payload["sub"])
+        
+        filters = []
+        if company is not None:
+            filters.append(Application.company_name.ilike(f"%{company}%"))
+        if location is not None:
+            filters.append(Application.loc.ilike(f"%{location}%"))
+        if role is not None:
+            filters.append(Application.role.ilike(f"%{role}%"))
 
-        return applications
+        applications = query.filter(*filters).all()
+
+        return [
+            application_utils.get_application_read(app, db)
+            for app in applications
+        ]
 
 
 @app.get("/applications/{application_id}", response_model=ApplicationRead)
@@ -301,7 +314,7 @@ def fetch_application(request: Request, application_id: int):
         if application is None:
             raise HTTPException(status_code=404, detail="Application not found.")
 
-        return application
+        return application_utils.get_application_read(application, db)
 
 
 @app.patch("/application/update/{application_id}", response_model=ApplicationRead)
@@ -356,7 +369,7 @@ def update_application(request: Request, application_id: int, update: Applicatio
         db.commit()
         db.refresh(application)
 
-        return application
+        return application_utils.get_application_read(application, db)
 
 
 @app.post("/application/create")
@@ -419,7 +432,7 @@ def create_application(request: Request, data: ApplicationCreateFrontend) -> App
         db.commit()
         db.refresh(application)
 
-        return application # type: ignore
+        return application_utils.get_application_read(application, db)
 
 
 @app.get("/emails/process/{email_id}")

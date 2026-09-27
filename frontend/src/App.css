@@ -168,6 +168,10 @@
     border-radius: 16px;
 }
 
+.application-card-data {
+    line-height: 15px;
+}
+
 /* Medium screens */
 @media (max-width: 1200px) {
     .kanban-board {

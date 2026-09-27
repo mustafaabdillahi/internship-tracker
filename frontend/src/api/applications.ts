@@ -1,8 +1,28 @@
-import type { Application, ApplicationFormData } from "../types/application";
+import type { Application, Filters, ApplicationFormData } from "../types/application";
 import apiClient from "./client";
 
-export async function getApplications(): Promise<Application[]> {
-    const response = await apiClient.get<Application[]>("/applications");
+export async function getApplications(
+    filters?: Filters
+): Promise<Application[]> {
+    const params = new URLSearchParams();
+
+    if (filters?.company) {
+        params.set("company", filters.company);
+    }
+    if (filters?.location) {
+        params.set("location", filters.location);
+    }
+    if (filters?.role) {
+        params.set("role", filters.role);
+    }
+    if (filters?.dateFrom) {
+        params.set("date_from", filters.dateFrom);
+    }
+    if (filters?.dateTo) {
+        params.set("date_to", filters.dateTo);
+    }
+
+    const response = await apiClient.get<Application[]>(`/applications?${params.toString()}`);
     return response.data;
 }
 

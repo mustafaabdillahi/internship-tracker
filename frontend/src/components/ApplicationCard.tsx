@@ -66,13 +66,13 @@ function ApplicationCard(
         {application.company_name ?? "Unknown company"}
         
       </strong>
-      <p>
-        Role: {application.role ?? "Unknown"}
+      <p className="application-card-data">
+        {application.role ?? "Unknown role"}
+      </p>
+      <p className="application-card-data">
+        {application.loc ?? "Unknown location"}
       </p>
 
-      {application.loc && (
-        <p>{application.loc}</p>
-      )}
     </div>
   );
 }

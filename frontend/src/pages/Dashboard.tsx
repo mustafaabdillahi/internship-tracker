@@ -4,6 +4,7 @@ import KanbanBoard from "../components/KanbanBoard";
 import { useState } from "react";
 import type { Application } from "../types/application";
 import ApplicationModal from "../components/ApplicationModal";
+import ApplicationFilters from "../components/ApplicationFilters";
 
 function Dashboard() {
 
@@ -15,6 +16,7 @@ function Dashboard() {
       <div>
           <h1>Dashboard</h1>
           <p>This is the dashboard page.</p>
+
           <button
             onClick={() => {
               setSelectedApplication(null);
@@ -22,6 +24,8 @@ function Dashboard() {
             }}>
             + New Application
           </button>
+          
+          <br />
           <KanbanBoard
             onEditApplication={(application) => {
               setSelectedApplication(application);

@@ -33,10 +33,7 @@ class ApplicationRead(BaseModel):
     role: str | None = None
     stage: ApplicationStage | None = None
     date_applied: datetime
+    updated_at: datetime
     loc: str | None
     employment_type: str | None = None
     notes: str | None = None
-
-    model_config = ConfigDict(
-        from_attributes=True
-    )

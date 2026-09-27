@@ -7,6 +7,7 @@ from app.utils import common_utils
 from datetime import datetime, timezone
 from sqlalchemy.orm import Session
 import re
+import sqlalchemy.exc
 
 ROLE_RE = re.compile(r"[^a-z0-9\s]")
 STOPWORDS = {"intern", "internship", "the", "a", "an", "co-op", "coop", "position", "role"}
@@ -252,3 +253,27 @@ def flag_for_manual_review(email: EmailProcessing, extracted: ExtractedEmail, co
 def llm_disambiguate(email: EmailProcessing, extracted: ExtractedEmail, candidates: list[ScoredCandidate]):
     # TODO: TO BE IMPLEMENTED
     return
+
+
+def get_application_read(application: Application, db: Session) -> ApplicationRead:
+    """Gets the ApplicationRead object for an application."""
+    stage_event = db.query(StageEvent).filter(
+        StageEvent.application_id == application.id
+    ).order_by(
+        StageEvent.created_at.desc()
+    ).first()
+
+    if not stage_event:
+        raise sqlalchemy.exc.NoResultFound(f"Application {application.id} has no stage event.")
+
+    return ApplicationRead(
+        id=application.id,
+        company_name=application.company_name,
+        role=application.role,
+        stage=application.stage,
+        date_applied=application.date_applied,
+        updated_at=stage_event.created_at,
+        loc=application.loc,
+        employment_type=application.employment_type,
+        notes=application.notes
+    )

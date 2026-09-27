@@ -1,10 +1,11 @@
 import { DndContext, DragOverlay, type DragEndEvent, type DragStartEvent } from "@dnd-kit/core";
-import type { Application, ApplicationStage } from "../types/application";
+import { type Filters, type Application, type ApplicationStage, type ApplicationSort } from "../types/application";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { getApplications, updateApplication } from "../api/applications";
 import KanbanColumn from "./KanbanColumn";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import ApplicationCard from "./ApplicationCard";
+import ApplicationFilters from "./ApplicationFilters";
 
 const columns: {
   id: ApplicationStage;
@@ -41,9 +42,55 @@ interface KanbanBoardProps {
 }
 
 
+function sortApplications(applications: Application[], sort: ApplicationSort) {
+  return [...applications].sort(
+    (a, b) => {
+      let a_name = a.company_name ?? "";
+      let b_name = b.company_name ?? "";
+      switch(sort) {
+        case "applied_desc":
+          return (
+            new Date(b.date_applied).getTime() - 
+            new Date(a.date_applied).getTime()
+          );
+        case "applied_asc":
+          return (
+            new Date(a.date_applied).getTime() - 
+            new Date(b.date_applied).getTime()
+          );
+        case "updated_desc":
+          return (
+            new Date(b.updated_at).getTime() - 
+            new Date(a.updated_at).getTime()
+          );
+        case "updated_asc":
+          return (
+            new Date(a.updated_at).getTime() - 
+            new Date(b.updated_at).getTime()
+          );
+        case "company_asc":
+          return a_name.localeCompare(b_name);
+        case "company_desc":
+          return b_name.localeCompare(a_name);
+        default:
+          return 0;
+      }
+    }
+  );
+}
 
 function KanbanBoard({ onEditApplication }: KanbanBoardProps) {
   const queryClient = useQueryClient();
+
+  const [filters, setFilters] = useState<Filters>({
+    company: "",
+    location: "",
+    role: "",
+    dateFrom: "",
+    dateTo: ""
+  });
+
+  const [sort, setSort] = useState<ApplicationSort>("applied_desc");
 
   const {
     data: applications = [],
@@ -51,9 +98,16 @@ function KanbanBoard({ onEditApplication }: KanbanBoardProps) {
     isError,
     error
   } = useQuery({
-    queryKey: ["applications"],
-    queryFn: getApplications
+    queryKey: ["applications", filters],
+    queryFn: () => getApplications(filters),
+    placeholderData: (previousData) => previousData
   });
+
+
+  const sortedApplications = useMemo(
+    () => sortApplications(applications, sort),
+    [applications, sort]
+  );
 
   const updateStageMutation = useMutation({
     mutationFn: ({
@@ -160,36 +214,58 @@ function KanbanBoard({ onEditApplication }: KanbanBoardProps) {
 
   
   return (
-    <DndContext onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
-      <div className="kanban-board">
-        {columns.map((column) => {
-          const columnApplications = applications.filter(
-            (application) => application.stage === column.id
-          );
+    <>
+      <select
+        value={sort}
+        onChange={(event) => {
+          setSort(event.target.value as ApplicationSort)
+        }}
+      >
+        <option value="applied_desc">Date applied — Newest</option>
+        <option value="applied_asc">Date applied — Oldest</option>
+        <option value="updated_desc">Last updated — Newest</option>
+        <option value="updated_asc">Last updated — Oldest</option>
+        <option value="company_asc">Company — A-Z</option>
+        <option value="company_desc">Company — Z-A</option>
+      </select>
+      
+      <br />
+      <ApplicationFilters
+        filters={filters}
+        onChange={setFilters}
+      />
+      
+      <DndContext onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+        <div className="kanban-board">
+          {columns.map((column) => {
+            const columnApplications = sortedApplications.filter(
+              (application) => application.stage === column.id
+            );
 
-          return (
-            <KanbanColumn
-              key={column.id}
-              id={column.id}
-              title={column.title}
-              applications={columnApplications}
-              activeApplicationId={activeApplicationId}
+            return (
+              <KanbanColumn
+                key={column.id}
+                id={column.id}
+                title={column.title}
+                applications={columnApplications}
+                activeApplicationId={activeApplicationId}
+                onEdit={onEditApplication}
+              />
+            );
+
+          })}
+        </div>
+        <DragOverlay dropAnimation={null}>
+          {activeApplication ? (
+            <ApplicationCard
+              application={activeApplication}
+              isOverlay
               onEdit={onEditApplication}
             />
-          );
-
-        })}
-      </div>
-      <DragOverlay dropAnimation={null}>
-        {activeApplication ? (
-          <ApplicationCard
-            application={activeApplication}
-            isOverlay
-            onEdit={onEditApplication}
-          />
-        ): null}
-      </DragOverlay>
-    </DndContext>
+          ): null}
+        </DragOverlay>
+      </DndContext>
+    </>
   );
 }
 

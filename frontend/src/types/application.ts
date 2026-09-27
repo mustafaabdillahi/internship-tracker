@@ -15,6 +15,7 @@ export interface Application {
   role: string | null;
   stage: ApplicationStage | null;
   date_applied: string;
+  updated_at: string;
   loc: string | null;
   employment_type: string | null;
   notes: string | null;
@@ -28,3 +29,19 @@ export interface ApplicationFormData {
   employment_type: string | null;
   notes: string | null;
 }
+
+export interface Filters {
+  company: string;
+  location: string;
+  role: string;
+  dateFrom: string;
+  dateTo: string;
+}
+
+export type ApplicationSort =
+  | "applied_desc"
+  | "applied_asc"
+  | "updated_desc"
+  | "updated_asc"
+  | "company_asc"
+  | "company_desc";

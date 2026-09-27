@@ -104,6 +104,17 @@ function ApplicationForm(
         />
       </div>
 
+      <div className="form-field">
+        <label htmlFor="loc">Location</label>
+
+        <input
+          id="loc"
+          name="loc"
+          value={formData.loc ?? ""}
+          onChange={handleChange}
+        />
+      </div>
+
       <select
         id="stage"
         name="stage"
