@@ -1,12 +1,13 @@
 import "./App.css";
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
-import Login from './pages/Login'
 import Layout from './components/Layout'
 import Dashboard from './pages/Dashboard'
 import ApplicationDetails from './pages/ApplicationDetails'
 import Analytics from './pages/Analytics'
 import Calendar from './pages/Calendar'
 import ProtectedRoute from "./components/ProtectedRoute";
+import AuthCallback from "./pages/AuthCallback";
+import Login from "./pages/Login";
 
 
 function App() {
@@ -15,6 +16,7 @@ function App() {
       <Routes>
         {/* Public routes */}
         <Route path="/login" element={<Login />} />
+        <Route path="/auth/callback" element={<AuthCallback />} />
 
         {/* Authenticated application routes */}
         <Route element={<ProtectedRoute />}>

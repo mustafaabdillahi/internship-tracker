@@ -9,17 +9,18 @@ from app.ai import classifier, email_pruner, extractor
 from app.database import SessionLocal
 from app.models.database_models import Application, Company, CompanyAlias, EmailProcessing, EmailRecord, StageEvent, User
 from app.schemas.application import ApplicationCreateFrontend, ApplicationRead, ApplicationUpdate
+from app.schemas.auth import OAuthCodeRequest
 from app.schemas.user import UserRead
-from app.utils import application_utils, common_utils, utils
+from app.utils import application_utils, auth_utils, common_utils, utils
 from datetime import date, datetime, time, timedelta, timezone
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse, Response
 from google.auth.transport import requests as google_requests
 from google.oauth2 import id_token
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import Flow
-from jose import jwt, JWTError
+from jose import jwt
 from sqlalchemy.dialects import postgresql
 import secrets
 import sqlalchemy
@@ -28,6 +29,8 @@ import sqlalchemy.exc
 
 app = FastAPI()
 engine = sqlalchemy.create_engine(settings.psql_url)
+
+oauth_codes: dict[str, dict] = {}
 
 # Allows backend to access API
 app.add_middleware(
@@ -130,52 +133,53 @@ def login_google_callback(request: Request):
         db.commit()
         db.refresh(user)
 
-    # Declare session token
+    oauth_code = secrets.token_urlsafe(32)
+    oauth_codes[oauth_code] = {
+        "user_id": user.id,
+        "expires_at": datetime.now(timezone.utc) + timedelta(minutes=1)
+    }
+
+    response = RedirectResponse(f"{settings.frontend_url}/auth/callback?code={oauth_code}")
+
+    # Redirect to callback page
+    return response
+
+
+@app.post("/auth/exchange")
+def exchange_oauth_code(data: OAuthCodeRequest):
+    oauth_data = oauth_codes.get(data.code)
+
+    if oauth_data is None:
+        raise HTTPException(status_code=400, detail="Invalid OAuth code")
+
+    if oauth_data["expires_at"] < datetime.now(timezone.utc):
+        del oauth_codes[data.code]
+        raise HTTPException(status_code=400, detail="OAuth code expired")
+
+    user_id = oauth_data["user_id"]
+    del oauth_codes[data.code]
+
     payload = {
-        "sub": user.id,
+        "sub": user_id,
         "exp": datetime.now(timezone.utc) + timedelta(days=7)
     }
+
     session_token = jwt.encode(
         payload,
         settings.jwt_secret,
         algorithm="HS256"
     )
 
-    # Add session token to cookies
-    response = RedirectResponse(f"{settings.frontend_url}/dashboard")
-    response.delete_cookie("code_verifier")
-    response.delete_cookie("oauth_state")
-    response.set_cookie(
-        key="session",
-        value=session_token,
-        httponly=True,
-        secure=settings.production,
-        samesite="none" if settings.production else "lax",
-        max_age=60*60*24*7 # 7 days
-    )
-
-    # Redirect back to home page
-    return response
+    return {
+        "access_token": session_token
+    }
 
 
-# Test page used to store user information
+# Test page used to get user information
 @app.get("/auth/me", response_model=UserRead)
-def auth_user_info(request: Request):
-    session = request.cookies.get("session")
-    if not session:
-        raise HTTPException(status_code=401, detail="Not authenticated")
-
-    try:
-        payload = jwt.decode(
-            session,
-            settings.jwt_secret,
-            algorithms=["HS256"]
-        )
-    except JWTError:
-        raise HTTPException(status_code=401, detail="Invalid or expired session")
-
+def auth_user_info(user_id: str = Depends(auth_utils.get_user_id)):
     with SessionLocal() as db:
-        user = db.query(User).filter(User.id == payload["sub"]).first()
+        user = db.query(User).filter(User.id == user_id).first()
         if user is None:
             raise HTTPException(status_code=401, detail="User no longer exists")
 
@@ -184,19 +188,9 @@ def auth_user_info(request: Request):
 
 # FOR TESTING ONLY: Get list of emails
 @app.get("/emails")
-def get_user_emails(request: Request):
-    session = request.cookies.get("session")
-    if not session:
-        raise HTTPException(status_code=401, detail="Not authenticated")
-
-    payload = jwt.decode(
-        session,
-        settings.jwt_secret,
-        algorithms=["HS256"]
-    )
-
+def get_user_emails(user_id: str = Depends(auth_utils.get_user_id)):
     with SessionLocal() as db:
-        user = db.query(User).filter(User.id == payload["sub"]).first()
+        user = db.query(User).filter(User.id == user_id).first()
 
         if user is None:
             raise HTTPException(status_code=404, detail="User not found.")
@@ -217,19 +211,9 @@ def get_user_emails(request: Request):
 
 
 @app.post("/gmail/sync")
-def record_user_emails(request: Request):
-    session = request.cookies.get("session")
-    if not session:
-        raise HTTPException(status_code=401, detail="Not authenticated")
-
-    payload = jwt.decode(
-        session,
-        settings.jwt_secret,
-        algorithms=["HS256"]
-    )
-
+def record_user_emails(user_id: str = Depends(auth_utils.get_user_id)):
     with SessionLocal() as db:
-        user = db.query(User).filter(User.id == payload["sub"]).first()
+        user = db.query(User).filter(User.id == user_id).first()
 
         if user is None:
             raise HTTPException(status_code=404, detail="User not found.")
@@ -255,24 +239,14 @@ def record_user_emails(request: Request):
 
 
 @app.get("/applications", response_model=list[ApplicationRead])
-def fetch_applications(request: Request, company: str | None = None, location: str | None = None, role: str | None = None,
+def fetch_applications(user_id: str = Depends(auth_utils.get_user_id), company: str | None = None, location: str | None = None, role: str | None = None,
                        date_from: date | None = None, date_to: date | None = None):
-    session = request.cookies.get("session")
-    if not session:
-        raise HTTPException(status_code=401, detail="Not authenticated")
-
-    payload = jwt.decode(
-        session,
-        settings.jwt_secret,
-        algorithms=["HS256"]
-    )
-
     with SessionLocal() as db:
-        user = db.query(User).filter(User.id == payload["sub"]).first()
+        user = db.query(User).filter(User.id == user_id).first()
         if user is None:
             raise HTTPException(status_code=404, detail="User not found.")
 
-        query = db.query(Application).filter(Application.user_id == payload["sub"])
+        query = db.query(Application).filter(Application.user_id == user_id)
         
         filters = []
         if company is not None:
@@ -297,25 +271,15 @@ def fetch_applications(request: Request, company: str | None = None, location: s
 
 
 @app.get("/applications/{application_id}", response_model=ApplicationRead)
-def fetch_application(request: Request, application_id: int):
-    session = request.cookies.get("session")
-    if not session:
-        raise HTTPException(status_code=401, detail="Not authenticated")
-
-    payload = jwt.decode(
-        session,
-        settings.jwt_secret,
-        algorithms=["HS256"]
-    )
-
+def fetch_application(application_id: int, user_id: str = Depends(auth_utils.get_user_id)):
     with SessionLocal() as db:
-        user = db.query(User).filter(User.id == payload["sub"]).first()
+        user = db.query(User).filter(User.id == user_id).first()
         if user is None:
             raise HTTPException(status_code=404, detail="User not found.")
 
         application = db.query(Application).filter(
             Application.id == application_id,
-            Application.user_id == payload["sub"]
+            Application.user_id == user_id
         ).first()
 
         if application is None:
@@ -325,24 +289,11 @@ def fetch_application(request: Request, application_id: int):
 
 
 @app.patch("/application/update/{application_id}", response_model=ApplicationRead)
-def update_application(request: Request, application_id: int, update: ApplicationUpdate):
-    session = request.cookies.get("session")
-    if not session:
-        raise HTTPException(status_code=401, detail="Not authenticated")
-
-    try:
-        payload = jwt.decode(
-            session,
-            settings.jwt_secret,
-            algorithms=["HS256"]
-        )
-    except JWTError:
-        raise HTTPException(status_code=401, detail="Invalid or expired token")
-
+def update_application(application_id: int, update: ApplicationUpdate, user_id: str = Depends(auth_utils.get_user_id)):
     with SessionLocal() as db:
         application = db.query(Application).filter(
             Application.id == application_id,
-            Application.user_id == payload["sub"]
+            Application.user_id == user_id
         ).first()
 
         if application is None:
@@ -380,21 +331,8 @@ def update_application(request: Request, application_id: int, update: Applicatio
 
 
 @app.post("/application/create")
-def create_application(request: Request, data: ApplicationCreateFrontend) -> ApplicationRead:
+def create_application(data: ApplicationCreateFrontend, user_id: str = Depends(auth_utils.get_user_id)) -> ApplicationRead:
     """Manually creates application."""
-    
-    session = request.cookies.get("session")
-    if not session:
-        raise HTTPException(status_code=401, detail="Not authenticated")
-
-    try:
-        payload = jwt.decode(
-            session,
-            settings.jwt_secret,
-            algorithms=["HS256"]
-        )
-    except JWTError:
-        raise HTTPException(status_code=401, detail="Invalid or expired token")
 
     with SessionLocal() as db:
         alias = db.query(CompanyAlias).filter(
@@ -424,7 +362,7 @@ def create_application(request: Request, data: ApplicationCreateFrontend) -> App
             db.add(new_alias)
             
         application = Application(
-            user_id=payload["sub"],
+            user_id=user_id,
             company_id=company.id,
             company_name=data.company_name,
             role=data.role,
@@ -434,8 +372,17 @@ def create_application(request: Request, data: ApplicationCreateFrontend) -> App
             employment_type=data.employment_type,
             notes=data.notes
         )
-
         db.add(application)
+        db.flush()
+
+        stage_event = StageEvent(
+            id=common_utils.generate_id(12),
+            application_id=application.id,
+            stage=data.stage,
+            dt=datetime.now(timezone.utc)
+        )
+        db.add(stage_event)
+        
         db.commit()
         db.refresh(application)
 
@@ -443,25 +390,15 @@ def create_application(request: Request, data: ApplicationCreateFrontend) -> App
 
 
 @app.get("/emails/process/{email_id}")
-def process_email(request: Request, email_id: int):
-    session = request.cookies.get("session")
-    if not session:
-        raise HTTPException(status_code=401, detail="Not authenticated")
-
-    payload = jwt.decode(
-        session,
-        settings.jwt_secret,
-        algorithms=["HS256"]
-    )
-
+def process_email(email_id: int, user_id: str = Depends(auth_utils.get_user_id)):
     with SessionLocal() as db:
-        user = db.query(User).filter(User.id == payload["sub"]).first()
+        user = db.query(User).filter(User.id == user_id).first()
         if user is None:
             raise HTTPException(status_code=404, detail="User not found.")
 
         email = db.query(EmailRecord).filter(
             EmailRecord.id == email_id,
-            EmailRecord.user_id == payload["sub"]
+            EmailRecord.user_id == user_id
         ).first()
 
         if email is None:
@@ -469,7 +406,7 @@ def process_email(request: Request, email_id: int):
 
         processed_email = db.query(EmailProcessing).filter(
             EmailProcessing.email_id == email_id,
-            EmailProcessing.user_id == payload["sub"]
+            EmailProcessing.user_id == user_id
         ).first()
 
         # If e-mail already processed, return the stored information
@@ -491,7 +428,7 @@ def process_email(request: Request, email_id: int):
             output,
             extracted,
             email_id,
-            payload["sub"],
+            user_id,
             email.received_at,
             db
         )
