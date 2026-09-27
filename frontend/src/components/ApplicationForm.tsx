@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { type ApplicationFormData, type Application, applicationStages } from "../types/application";
 import { createApplication, updateApplication } from "../api/applications";
 import { useQueryClient } from "@tanstack/react-query";
@@ -11,7 +11,7 @@ interface ApplicationFormProps {
 
 
 function ApplicationForm(
-  { application=undefined, onClose }: ApplicationFormProps
+  { application, onClose }: ApplicationFormProps
 ) {
   const [formData, setFormData] = useState<ApplicationFormData>(() => ({
     company_name: application?.company_name ?? "",
@@ -25,17 +25,6 @@ function ApplicationForm(
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const queryClient = useQueryClient();
-
-  useEffect(() => {
-    setFormData({
-      company_name: application?.company_name ?? "",
-      stage: application?.stage ?? "applied",
-      role: application?.role ?? null,
-      loc: application?.loc ?? null,
-      employment_type: application?.employment_type ?? null,
-      notes: application?.notes ?? null
-    });
-  }, [application]);
 
 
   function handleChange(
@@ -57,16 +46,14 @@ function ApplicationForm(
 
     try {
       if(application) {
-        await updateApplication(application.id, formData);
-        await queryClient.invalidateQueries({
-          queryKey: ["applications"]
-        });
+        await updateApplication(application.id, formData);  
       } else {
         await createApplication(formData);
-        await queryClient.invalidateQueries({
-          queryKey: ["applications"]
-        });
       }
+
+      await queryClient.invalidateQueries({
+        queryKey: ["applications"]
+      });
 
       onClose();
     } catch(error) {

@@ -13,7 +13,7 @@ function ApplicationModal(
   {
     isOpen,
     onClose,
-    application=undefined
+    application
   }: ApplicationModalProps
 ) {
 

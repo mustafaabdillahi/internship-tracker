@@ -11,7 +11,7 @@ from app.models.database_models import Application, Company, CompanyAlias, Email
 from app.schemas.application import ApplicationCreateFrontend, ApplicationRead, ApplicationUpdate
 from app.schemas.user import UserRead
 from app.utils import application_utils, common_utils, utils
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, time, timedelta, timezone
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse, Response
@@ -255,7 +255,8 @@ def record_user_emails(request: Request):
 
 
 @app.get("/applications", response_model=list[ApplicationRead])
-def fetch_applications(request: Request, company: str | None = None, location: str | None = None, role: str | None = None):
+def fetch_applications(request: Request, company: str | None = None, location: str | None = None, role: str | None = None,
+                       date_from: date | None = None, date_to: date | None = None):
     session = request.cookies.get("session")
     if not session:
         raise HTTPException(status_code=401, detail="Not authenticated")
@@ -280,6 +281,12 @@ def fetch_applications(request: Request, company: str | None = None, location: s
             filters.append(Application.loc.ilike(f"%{location}%"))
         if role is not None:
             filters.append(Application.role.ilike(f"%{role}%"))
+        if date_from is not None:
+            start = datetime.combine(date_from, time.min, tzinfo=timezone.utc)
+            filters.append(Application.date_applied >= start)
+        if date_to is not None:
+            end = datetime.combine(date_to + timedelta(days=1), time.max, tzinfo=timezone.utc)
+            filters.append(Application.date_applied < end)
 
         applications = query.filter(*filters).all()
 

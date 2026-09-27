@@ -172,6 +172,14 @@
     line-height: 15px;
 }
 
+label {
+    font-size: 15px;
+}
+
+input {
+    margin: 2px 5px 0 5px;
+}
+
 /* Medium screens */
 @media (max-width: 1200px) {
     .kanban-board {

@@ -4,7 +4,6 @@ import KanbanBoard from "../components/KanbanBoard";
 import { useState } from "react";
 import type { Application } from "../types/application";
 import ApplicationModal from "../components/ApplicationModal";
-import ApplicationFilters from "../components/ApplicationFilters";
 
 function Dashboard() {
 
@@ -38,6 +37,7 @@ function Dashboard() {
 
       <div>
         <ApplicationModal
+          key={selectedApplication?.id ?? "new"}
           isOpen={isApplicationModalOpen}
           application={selectedApplication ?? undefined}
           onClose={() => {

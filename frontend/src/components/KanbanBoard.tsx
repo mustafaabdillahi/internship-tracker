@@ -45,8 +45,8 @@ interface KanbanBoardProps {
 function sortApplications(applications: Application[], sort: ApplicationSort) {
   return [...applications].sort(
     (a, b) => {
-      let a_name = a.company_name ?? "";
-      let b_name = b.company_name ?? "";
+      const a_name = a.company_name ?? "";
+      const b_name = b.company_name ?? "";
       switch(sort) {
         case "applied_desc":
           return (
