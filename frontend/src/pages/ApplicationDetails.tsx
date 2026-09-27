@@ -12,7 +12,7 @@ function ApplicationDetails() {
       error
     } = useQuery({
       queryKey: ["applications", id],
-      queryFn: () => getApplication(id!),
+      queryFn: () => getApplication(parseInt(id!)),
       enabled: Boolean(id)
     });
   
