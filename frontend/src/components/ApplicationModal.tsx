@@ -1,7 +1,9 @@
-import { X } from "lucide-react";
+import { Trash, X } from "lucide-react";
 import type { Application } from "../types/application";
 import ApplicationForm from "./ApplicationForm";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
+import { deleteApplication } from "../api/applications";
+import { useQueryClient } from "@tanstack/react-query";
 
 interface ApplicationModalProps {
   isOpen: boolean;
@@ -18,6 +20,8 @@ function ApplicationModal(
 ) {
 
   const isEditing = application !== undefined;
+  const [isDeleting, setIsDeleting] = useState(false);
+  const queryClient = useQueryClient();
 
   useEffect(() => {
     if(!isOpen) {
@@ -39,6 +43,27 @@ function ApplicationModal(
 
   if(!isOpen) {
       return null;
+  }
+
+  async function onDelete(application: Application) {
+    if(isDeleting) {
+      return;
+    }
+
+    try {
+      setIsDeleting(true);
+      await deleteApplication(application.id);
+
+      await queryClient.invalidateQueries({
+        queryKey: ["applications"]
+      });
+
+      onClose();
+    } catch(error) {
+      console.error("Failed to delete applicatioon:", error);
+    } finally {
+      setIsDeleting(false);
+    }
   }
 
   return (
@@ -65,6 +90,18 @@ function ApplicationModal(
           >
             <X />
           </button>
+          
+          {application && (
+            <button
+              className="delete-application-button"
+              type="button"
+              onClick={() => onDelete(application)}
+              disabled={isDeleting}
+              aria-label="close"
+            >
+              <Trash className="Trash" />
+            </button>
+          )}
         </div>
         
         <ApplicationForm

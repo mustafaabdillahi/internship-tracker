@@ -389,6 +389,25 @@ def create_application(data: ApplicationCreateFrontend, user_id: str = Depends(a
         return application_utils.get_application_read(application, db)
 
 
+@app.delete("/application/delete/{application_id}")
+def delete_application(application_id: int,  user_id: str = Depends(auth_utils.get_user_id)):
+    with SessionLocal() as db:
+        application = db.query(Application).filter(
+            Application.id == application_id,
+            Application.user_id == user_id
+        ).first()
+
+        if application is None:
+            raise HTTPException(status_code=404, detail="Application not found")
+
+        db.delete(application)
+        db.commit()
+
+    return {
+        "success": f"Application id={id} deleted"
+    }
+
+
 @app.get("/emails/process/{email_id}")
 def process_email(email_id: int, user_id: str = Depends(auth_utils.get_user_id)):
     with SessionLocal() as db:

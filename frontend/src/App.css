@@ -180,6 +180,18 @@ input {
     margin: 2px 5px 0 5px;
 }
 
+.delete-application-button:hover {
+    background-color: #c22110;
+    cursor: pointer;
+    transition: all 0.1s;
+}
+
+.delete-application-button .Trash {
+    width: 20px;
+    height: 20px;
+    color: white;
+}
+
 /* Medium screens */
 @media (max-width: 1200px) {
     .kanban-board {
