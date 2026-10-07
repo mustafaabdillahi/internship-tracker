@@ -1,4 +1,4 @@
-import type { ApplicationDeadline } from "../../types/applicationDetail";
+import { type ApplicationDeadline } from "../../types/applicationDetail";
 
 interface Props {
   deadlines: ApplicationDeadline[];

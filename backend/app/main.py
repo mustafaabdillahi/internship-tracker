@@ -293,11 +293,6 @@ def fetch_application(application_id: int, user_id: str = Depends(auth_utils.get
 def fetch_application_detail(application_id: int, user_id: str = Depends(auth_utils.get_user_id)):
     """Gets more detailed application details."""
     with SessionLocal() as db:
-    #application: Application;
-    #stage_events: StageEvent[];
-    #emails: ApplicationEmail[];
-    #notes: ApplicationNote[];
-    #deadlines: ApplicationDeadline[];
         user = db.query(User).filter(User.id == user_id).first()
         if user is None:
             raise HTTPException(status_code=404, detail="User not found.")
