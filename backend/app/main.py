@@ -8,7 +8,7 @@ if not settings.production:
 from app.ai import classifier, email_pruner, extractor
 from app.database import SessionLocal
 from app.models.database_models import Application, Company, CompanyAlias, EmailProcessing, EmailRecord, StageEvent, User
-from app.schemas.application import ApplicationCreateFrontend, ApplicationRead, ApplicationUpdate
+from app.schemas.application import ApplicationCreateFrontend, ApplicationDetailRead, ApplicationRead, ApplicationUpdate
 from app.schemas.auth import OAuthCodeRequest
 from app.schemas.user import UserRead
 from app.utils import application_utils, auth_utils, common_utils, utils
@@ -272,6 +272,7 @@ def fetch_applications(user_id: str = Depends(auth_utils.get_user_id), company: 
 
 @app.get("/applications/{application_id}", response_model=ApplicationRead)
 def fetch_application(application_id: int, user_id: str = Depends(auth_utils.get_user_id)):
+    """Gets basic application details."""
     with SessionLocal() as db:
         user = db.query(User).filter(User.id == user_id).first()
         if user is None:
@@ -286,6 +287,41 @@ def fetch_application(application_id: int, user_id: str = Depends(auth_utils.get
             raise HTTPException(status_code=404, detail="Application not found.")
 
         return application_utils.get_application_read(application, db)
+
+
+@app.get("/applications/detail/{application_id}", response_model=ApplicationDetailRead)
+def fetch_application_detail(application_id: int, user_id: str = Depends(auth_utils.get_user_id)):
+    """Gets more detailed application details."""
+    with SessionLocal() as db:
+    #application: Application;
+    #stage_events: StageEvent[];
+    #emails: ApplicationEmail[];
+    #notes: ApplicationNote[];
+    #deadlines: ApplicationDeadline[];
+        user = db.query(User).filter(User.id == user_id).first()
+        if user is None:
+            raise HTTPException(status_code=404, detail="User not found.")
+
+        application = db.query(Application).filter(
+            Application.id == application_id,
+            Application.user_id == user_id
+        ).first()
+
+        if application is None:
+            raise HTTPException(status_code=404, detail="Application not found.")
+
+        stage_event_objs, email_objs, note_objs, deadline_objs = application_utils.get_application_detail_objects(application, db)
+        app_obj = application_utils.get_application_read(application, db)
+
+        output = ApplicationDetailRead(
+            application=app_obj,
+            stage_events=stage_event_objs,
+            emails=email_objs,
+            notes=note_objs,
+            deadlines=deadline_objs
+        )
+
+        return output
 
 
 @app.patch("/application/update/{application_id}", response_model=ApplicationRead)

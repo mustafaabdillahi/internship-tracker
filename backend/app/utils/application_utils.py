@@ -1,8 +1,10 @@
 from app.models.ai_models import ExtractedEmail
-from app.models.database_models import Application, Company, EmailProcessing, ManualReviewItem, StageEvent
+from app.models.database_models import Application, EmailProcessing, EmailRecord, ManualReviewItem, StageEvent
 from app.models.enums import ApplicationStage, ManualReviewType
 from app.models.application_match_models import MatchOutcome, MatchResult, ScoredCandidate
-from app.schemas.application import ApplicationRead
+from app.schemas.application import ApplicationRead, ApplicationDeadlineRead, ApplicationNoteRead
+from app.schemas.email import EmailRead
+from app.schemas.stage_event import StageEventRead
 from app.utils import common_utils
 from datetime import datetime, timezone
 from sqlalchemy.orm import Session
@@ -277,3 +279,65 @@ def get_application_read(application: Application, db: Session) -> ApplicationRe
         employment_type=application.employment_type,
         notes=application.notes
     )
+
+
+def get_application_detail_objects(application: Application, db: Session) -> tuple[
+    list[StageEventRead], list[EmailRead], list[ApplicationNoteRead], list[ApplicationDeadlineRead]]:
+    """Gets the stage event, email, notes and deadline objects from an application."""
+
+    stage_events = db.query(StageEvent).filter(
+        StageEvent.application_id == application.id,
+    ).order_by(
+        StageEvent.dt.desc()
+    ).all()
+
+    stage_event_objs = []
+    note_objs = []
+    deadline_objs = []
+
+    for s in stage_events:
+        stage_event_objs.append(StageEventRead(
+            id=s.id,
+            stage=s.stage,
+            created_at=s.created_at
+        ))
+
+        if s.notes:
+            note_objs.append(ApplicationNoteRead(
+                id=s.id,
+                content=s.notes,
+                created_at=s.created_at
+            ))
+
+        if s.deadline:
+            deadline_objs.append(ApplicationDeadlineRead(
+                id=s.id,
+                deadline_type=s.stage,
+                due_at=s.deadline
+            ))
+    
+    email_processing_ids = [s.processing_id for s in stage_events]
+    processings = db.query(EmailProcessing).filter(
+        EmailProcessing.id.in_(email_processing_ids)
+    ).all()
+
+    email_record_ids = [e.email_id for e in processings]
+    emails = db.query(EmailRecord).filter(
+        EmailRecord.id.in_(email_record_ids)
+    ).all()
+    
+    email_objs = [
+        EmailRead(
+            id=e.id,
+            subject=e.subject,
+            sender=e.sender,
+            received_at=e.received_at,
+            html_body=e.raw_html,
+            text_body=e.raw_text
+        )
+        for e in emails
+    ]
+
+    return stage_event_objs, email_objs, note_objs, deadline_objs
+
+

@@ -47,7 +47,6 @@ function ApplicationCard(
         isOverlay ? "application-card-overlay": ""
       }`}
     >
-
       <button
         type="button"
         className="edit-button"
@@ -72,7 +71,6 @@ function ApplicationCard(
       <p className="application-card-data">
         {application.loc ?? "Unknown location"}
       </p>
-
     </div>
   );
 }

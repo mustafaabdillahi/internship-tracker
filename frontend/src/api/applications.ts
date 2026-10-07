@@ -26,6 +26,11 @@ export async function getApplications(
     return response.data;
 }
 
+export async function getApplicationDetails(id: number) {
+    const response = await apiClient.get(`/applications/detail/${id}`);
+    return response.data;
+}
+
 export async function getApplication(id: number) {
     const response = await apiClient.get(`/applications/${id}`);
     return response.data;
