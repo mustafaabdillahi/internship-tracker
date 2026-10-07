@@ -1,4 +1,4 @@
-import { type ApplicationDeadline } from "../../types/applicationDetail";
+import type { ApplicationDeadline } from "../../types/applicationDetail";
 
 interface Props {
   deadlines: ApplicationDeadline[];
@@ -21,11 +21,11 @@ function DeadlineList({ deadlines }: Props) {
           className="rounded-lg border p-4"
         >
           <div className="font-medium">
-            {deadline.type}
+            Type: {deadline.deadline_type}
           </div>
 
           <div className="text-sm">
-            {deadline.description}
+            Description: {deadline.description}
           </div>
 
           <div className="text-sm text-grey-500">
